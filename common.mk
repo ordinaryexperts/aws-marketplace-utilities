@@ -16,11 +16,11 @@ ami-ec2-copy:
 bash:
 	docker-compose run -w /code --rm devenv bash
 
-bootstrap:
-	docker-compose run -w /code/cdk --rm devenv cdk bootstrap aws://992593896645/us-east-1
-
 build:
 	docker-compose build devenv
+
+cdk-bootstrap:
+	docker-compose run -w /code/cdk --rm devenv cdk bootstrap aws://992593896645/us-east-1
 
 clean:
 	docker-compose run -w /code --rm devenv bash ./scripts/cleanup.sh

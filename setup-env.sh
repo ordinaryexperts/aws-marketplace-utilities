@@ -15,6 +15,9 @@ apt-get -y -q install \
         vim   \
         wget
 
+# python
+apt-get -y -q install python3 python3-pip
+
 # aws cli
 cd /tmp
 curl --silent --show-error https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
