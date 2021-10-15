@@ -25,7 +25,12 @@ unzip -q awscliv2.zip
 ./aws/install
 cd -
 
-# For scripts/gen-pfl.py
-pip3 install -q awspricing pystache
+# For scripts/pfl.py
+pip3 install -q \
+     awspricing \
+     openpyxl   \
+     pandas     \
+     pystache   \
+     pyyaml
 
 echo "$(date): Finished setup-env.sh"
