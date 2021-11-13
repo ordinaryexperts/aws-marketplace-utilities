@@ -67,6 +67,7 @@ allowed_regions = open('/code/supported_regions.txt').read().split('\n')
 
 def get_highest_hourly_price_for_instance_type(instance_type, allowed_regions):
     highest_hourly_price = 0
+    highest_hourly_region = None
     response = pricing.get_products(
         ServiceCode='AmazonEC2',
         Filters = [
@@ -90,6 +91,8 @@ def get_highest_hourly_price_for_instance_type(instance_type, allowed_regions):
             # print(f'Hourly price for {location} is {hourly_price}')
             if hourly_price > highest_hourly_price:
                 highest_hourly_price = hourly_price
+                highest_hourly_region = location
+    # print(f'Highest price for {instance_type} is ${highest_hourly_price} at {highest_hourly_region}')
     return highest_hourly_price
 
 src = 'plf.xlsx'
@@ -118,12 +121,12 @@ for header in headers:
             if match_keyword in allowed_instance_types:
                 value = 'TRUE'
             else:
-                value = 'FALSE'
+                value = ''
         else:
             if match_keyword in allowed_regions:
                 value = 'TRUE'
             else:
-                value = 'FALSE'
+                value = ''
 
     price_match = re.search(r'(.+) (Hourly|Annual) Price', column)
     if price_match:
@@ -134,18 +137,19 @@ for header in headers:
             hourly_price_with_markup = price * OE_MARKUP_PERCENTAGE
             if price_type == 'Hourly':
                 if hourly_price_with_markup > MINIMUM_RATE:
-                    value = str(round(hourly_price_with_markup, 2))
+                    value = hourly_price_with_markup
                 else:
                     value = MINIMUM_RATE
+                value = '{:.2f}'.format(round(value, 2))
             else:
                 annual_price = hourly_price_with_markup * HOURS_IN_A_YEAR * ANNUAL_SAVINGS_PERCENTAGE
-                value = str(round(annual_price, 2))
+                value = '{:.2f}'.format(round(annual_price, 2))
     if not availability_match and not price_match:
         if column in plf_config:
             value = pystache.render(plf_config[column], {'ami': AMI, 'version': VERSION})
         else:
-            value = ''
-    if value != values[current_column_index].value:
+            value = None
+    if value is not None and value != values[current_column_index].value:
         print(f"{column} has changed! Old: '{values[current_column_index].value}' New: '{value}'")
         dst_sheet.cell(row=6, column=current_column_index+1, value=value)
     current_column_index += 1
