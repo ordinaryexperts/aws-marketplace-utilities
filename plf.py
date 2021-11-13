@@ -134,16 +134,16 @@ for header in headers:
         if instance_type in allowed_instance_types:
             price_type = price_match.groups()[1]
             price = get_highest_hourly_price_for_instance_type(instance_type, allowed_regions)
-            hourly_price_with_markup = price * OE_MARKUP_PERCENTAGE
+            hourly_price_with_markup = round(price * OE_MARKUP_PERCENTAGE, 2)
             if price_type == 'Hourly':
                 if hourly_price_with_markup > MINIMUM_RATE:
                     value = hourly_price_with_markup
                 else:
                     value = MINIMUM_RATE
-                value = '{:.2f}'.format(round(value, 2))
+                value = '{:.3f}'.format(value)
             else:
                 annual_price = hourly_price_with_markup * HOURS_IN_A_YEAR * ANNUAL_SAVINGS_PERCENTAGE
-                value = '{:.2f}'.format(round(annual_price, 2))
+                value = '{:.3f}'.format(round(annual_price, 2))
     if not availability_match and not price_match:
         if column in plf_config:
             value = pystache.render(plf_config[column], {'ami': AMI, 'version': VERSION})
