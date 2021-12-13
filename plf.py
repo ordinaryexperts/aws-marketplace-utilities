@@ -97,14 +97,15 @@ def get_highest_hourly_price_for_instance_type(instance_type, allowed_regions):
 
 src = 'plf.xlsx'
 dst = f'plf-{int(time.time())}.xlsx'
+SHEET_NAME = 'SSLSingleAMIAndCARWithContract'
 
 shutil.copyfile(src, dst)
 
 dst_wb = openpyxl.load_workbook(dst)
-dst_sheet = dst_wb['SSLSingleAMIAndCAR']
+dst_sheet = dst_wb[SHEET_NAME]
 
 src_wb = openpyxl.load_workbook(src)
-src_sheet = src_wb['SSLSingleAMIAndCAR']
+src_sheet = src_wb[SHEET_NAME]
 headers = src_sheet[5]
 values = src_sheet[6]
 
@@ -135,12 +136,10 @@ for header in headers:
             price_type = price_match.groups()[1]
             price = get_highest_hourly_price_for_instance_type(instance_type, allowed_regions)
             hourly_price_with_markup = round(price * OE_MARKUP_PERCENTAGE, 2)
+            if hourly_price_with_markup < MINIMUM_RATE:
+                hourly_price_with_markup = MINIMUM_RATE
             if price_type == 'Hourly':
-                if hourly_price_with_markup > MINIMUM_RATE:
-                    value = hourly_price_with_markup
-                else:
-                    value = MINIMUM_RATE
-                value = '{:.3f}'.format(value)
+                value = '{:.3f}'.format(hourly_price_with_markup)
             else:
                 annual_price = hourly_price_with_markup * HOURS_IN_A_YEAR * ANNUAL_SAVINGS_PERCENTAGE
                 value = '{:.3f}'.format(round(annual_price, 2))
