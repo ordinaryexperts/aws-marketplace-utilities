@@ -2,6 +2,7 @@
 # ----------
 #
 import boto3
+import datetime
 import json
 import openpyxl
 import pystache
@@ -96,7 +97,8 @@ def get_highest_hourly_price_for_instance_type(instance_type, allowed_regions):
     return highest_hourly_price
 
 src = 'plf.xlsx'
-dst = f'plf-{int(time.time())}.xlsx'
+now_dt = datetime.datetime.now()
+dst = f"plf-version-{VERSION.replace('.', '-')}--gen-{now_dt.strftime('%Y-%m-%d-%H-%M-%S')}"
 SHEET_NAME = 'SSLSingleAMIAndCARWithContract'
 
 shutil.copyfile(src, dst)
