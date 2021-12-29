@@ -67,6 +67,11 @@ diff:
 gen-plf: build
 	docker-compose run -w /code --rm devenv python3 ./scripts/gen-plf.py $(AMI_ID) $(TEMPLATE_VERSION)
 
+plf: build
+	mkdir -p ./scripts/common
+	wget -O ./scripts/common/plf.py https://raw.githubusercontent.com/ordinaryexperts/aws-marketplace-utilities/feature/excel/plf.py
+	docker-compose run -w /code --rm devenv python3 ./scripts/common/plf.py $(AMI_ID) $(TEMPLATE_VERSION)
+
 lint: build
 	docker-compose run -w /code --rm devenv bash ./scripts/lint.sh
 
