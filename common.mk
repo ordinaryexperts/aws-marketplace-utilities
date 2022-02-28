@@ -8,10 +8,14 @@ ami-docker-rebuild:
 	docker-compose build --no-cache ami
 
 ami-ec2-build:
-	docker-compose run -w /code --rm devenv bash ./scripts/packer.sh $(TEMPLATE_VERSION)
+	mkdir -p scripts/common
+	wget -O scripts/common/packer.sh https://raw.githubusercontent.com/ordinaryexperts/aws-marketplace-utilities/feature/common-scripts/packer.sh
+	docker-compose run -w /code --rm devenv bash ./scripts/common/packer.sh $(TEMPLATE_VERSION)
 
 ami-ec2-copy:
-	docker-compose run -w /code --rm devenv bash ./scripts/copy-image.sh $(AMI_ID)
+	mkdir -p scripts/common
+	wget -O scripts/common/packer.sh https://raw.githubusercontent.com/ordinaryexperts/aws-marketplace-utilities/feature/common-scripts/copy-image.sh
+	docker-compose run -w /code --rm devenv bash ./scripts/common/copy-image.sh $(AMI_ID)
 
 bash:
 	docker-compose run -w /code --rm devenv bash
