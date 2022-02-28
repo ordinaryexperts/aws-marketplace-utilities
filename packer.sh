@@ -13,7 +13,7 @@ else
     IS_RELEASE=true
 fi
 
-VERSION=$VERSION packer build $DIR/../packer/ami.json
+VERSION=$VERSION packer build $DIR/../../packer/ami.json
 
 AMI_ID=`cat manifest.json | jq -r .builds[-1].artifact_id |  cut -d':' -f2`
 AMI_NAME=`aws ec2 describe-images --image-ids $AMI_ID | jq -r '.Images[].Name'`
