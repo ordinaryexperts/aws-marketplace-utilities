@@ -86,7 +86,7 @@ synth: build
 	--asset-metadata false
 
 synth-to-file: build
-	docker-compose run -w /code --rm devenv bash -c "cd cdk \
+	mkdir -p dist && docker-compose run -w /code --rm devenv bash -c "cd cdk \
 	&& cdk synth \
 	--version-reporting false \
 	--path-metadata false \
