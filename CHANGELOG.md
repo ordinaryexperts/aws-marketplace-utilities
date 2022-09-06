@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.1.0
+
 * Common Makefile commands
 
 # 1.0.0
