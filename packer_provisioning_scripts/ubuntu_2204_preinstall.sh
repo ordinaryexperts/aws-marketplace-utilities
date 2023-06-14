@@ -14,7 +14,6 @@ apt-get -y install curl git jq ntp software-properties-common unzip vim wget zip
 
 # install latest CFN utilities
 apt-get -y install python3-pip
-ln -s /usr/bin/pip3 /usr/bin/pip
 pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
 
 # install aws cli
