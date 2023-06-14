@@ -2,6 +2,8 @@
 # AMI hardening
 #
 
+echo "$(date): ### Starting ubuntu_2204_postinstall.sh ###"
+
 # TODO failtoban
 
 # Update the AMI tools before using them
@@ -64,3 +66,5 @@ apt-get -y update
 
 # https://aws.amazon.com/articles/how-to-share-and-use-public-amis-in-a-secure-manner/
 find / -name "authorized_keys" -exec rm -f {} \;
+
+echo "$(date): ### Finished ubuntu_2204_postinstall.sh ###"
