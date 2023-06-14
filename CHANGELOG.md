@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.2.4
+
+* SSM Agent already installed on Ubuntu 22.04
+
 # 1.2.3
 
 * Add some logging
