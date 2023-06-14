@@ -1,6 +1,7 @@
 # Unreleased
 
 * Adding common packer templates
+* Removing unused or migrated files
 
 # 1.1.0
 
