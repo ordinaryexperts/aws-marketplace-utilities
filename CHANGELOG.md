@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.2.2
+
+* Fix issue with pip3 symlink
+
 # 1.2.1
 
 * Remove 'set +u' from preinstall script
