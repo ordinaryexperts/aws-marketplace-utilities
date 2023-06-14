@@ -1,4 +1,4 @@
-#!/bin/bash -eux
+#!/bin/bash -ex
 
 # wait for cloud-init to be done
 if [ ! "$IN_DOCKER" = true ]; then
