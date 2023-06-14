@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.2.3
+
+* Add some logging
+
 # 1.2.2
 
 * Fix issue with pip3 symlink
