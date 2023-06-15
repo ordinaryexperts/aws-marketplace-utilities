@@ -1,6 +1,7 @@
 #!/bin/bash -ex
 
 echo "$(date): ### Starting ubuntu_2204_preinstall.sh ###"
+
 # wait for cloud-init to be done
 if [ ! "$IN_DOCKER" = true ]; then
     cloud-init status --wait
