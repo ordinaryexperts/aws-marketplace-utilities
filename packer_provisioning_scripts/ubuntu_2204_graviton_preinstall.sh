@@ -1,5 +1,7 @@
 #!/bin/bash -ex
 
+echo "$(date): ### Starting ubuntu_2204_graviton_preinstall.sh ###"
+
 # wait for cloud-init to be done
 if [ ! "$IN_DOCKER" = true ]; then
     cloud-init status --wait
@@ -42,3 +44,5 @@ mkdir -p /opt/aws/rds
 cd /opt/aws/rds
 wget https://www.amazontrust.com/repository/AmazonRootCA1.pem
 cd -
+
+echo "$(date): ### Finished ubuntu_2204_graviton_preinstall.sh ###"
