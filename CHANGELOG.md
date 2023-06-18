@@ -1,5 +1,10 @@
 # Unreleased
 
+# 1.3.0
+
+* Adding Ubuntu 20.04 preinstall
+* Adding Ubuntu 20.04 support to postinstall
+
 # 1.2.5
 
 * Add more logging
