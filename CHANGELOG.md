@@ -1,5 +1,7 @@
 # Unreleased
 
+* Integrating graviton preinstall script with main preinstall script
+
 # 1.3.0
 
 * Adding Ubuntu 20.04 preinstall
