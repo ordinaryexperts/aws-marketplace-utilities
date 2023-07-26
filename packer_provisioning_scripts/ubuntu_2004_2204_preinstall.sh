@@ -15,6 +15,10 @@ while [[ $# -gt 0 ]]; do
         INSTALL_EFS_UTILS=true
         shift
         ;;
+        --use-graviton)
+        USE_GRAVITON=true
+        shift
+        ;;
         *)
         echo "Unknown option: $key"
         exit 1
@@ -40,14 +44,22 @@ pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-p
 
 # install aws cli
 cd /tmp
-curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+if [ "$USE_GRAVITON" = true ]; then
+  curl https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip -o awscliv2.zip
+else
+  curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+fi
 unzip awscliv2.zip
 ./aws/install
 cd -
 
 # install CloudWatch agent
 cd /tmp
-curl https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o amazon-cloudwatch-agent.deb
+if [ "$USE_GRAVITON" = true ]; then
+  curl https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/arm64/latest/amazon-cloudwatch-agent.deb -o amazon-cloudwatch-agent.deb
+else
+  curl https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o amazon-cloudwatch-agent.deb
+fi
 dpkg -i -E ./amazon-cloudwatch-agent.deb
 cd -
 # collectd for metrics
