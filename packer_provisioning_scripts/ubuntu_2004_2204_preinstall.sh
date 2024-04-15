@@ -3,6 +3,9 @@
 echo "$(date): ### Starting ubuntu_2004_2204_preinstall.sh ###"
 
 # parsing command line options
+INSTALL_CODE_DEPLOY_AGENT=false
+INSTALL_EFS_UTILS=false
+USE_GRAVITON=false
 while [[ $# -gt 0 ]]; do
     key="$1"
 
@@ -77,6 +80,8 @@ fi
 
 # install efs mount helper - requires git
 if [ "$INSTALL_EFS_UTILS" = true ]; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -q -y
+    source /root/.bashrc
     apt-get -y install binutils git
     git clone https://github.com/aws/efs-utils /tmp/efs-utils
     cd /tmp/efs-utils
