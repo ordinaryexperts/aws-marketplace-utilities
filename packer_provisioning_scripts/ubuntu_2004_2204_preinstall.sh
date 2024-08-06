@@ -81,11 +81,7 @@ fi
 # install efs mount helper - requires git
 if [ "$INSTALL_EFS_UTILS" = true ]; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -q -y
-    echo '###### about to source ######'
-    env
     source /root/.bashrc
-    echo '###### after source ######'
-    env
     apt-get -y install git binutils rustc cargo pkg-config libssl-dev
     git clone https://github.com/aws/efs-utils /tmp/efs-utils
     cd /tmp/efs-utils
