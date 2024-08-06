@@ -82,7 +82,7 @@ fi
 if [ "$INSTALL_EFS_UTILS" = true ]; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -q -y
     source /root/.bashrc
-    apt-get -y install binutils git
+    apt-get -y install binutils git cargo libssl-dev
     git clone https://github.com/aws/efs-utils /tmp/efs-utils
     cd /tmp/efs-utils
     ./build-deb.sh
