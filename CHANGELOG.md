@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.5.0
+
 * Adding cargo to fix efs-utils install
 
 # 1.4.0
