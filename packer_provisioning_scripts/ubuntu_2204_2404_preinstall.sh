@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-echo "$(date): ### Starting ubuntu_2004_2204_preinstall.sh ###"
+echo "$(date): ### Starting ubuntu_2204_2404_preinstall.sh ###"
 
 # parsing command line options
 INSTALL_CODE_DEPLOY_AGENT=false
@@ -100,4 +100,4 @@ cd /opt/aws/rds
 wget https://www.amazontrust.com/repository/AmazonRootCA1.pem
 cd -
 
-echo "$(date): ### Finished ubuntu_2004_2204_preinstall.sh ###"
+echo "$(date): ### Finished ubuntu_2204_2404_preinstall.sh ###"
