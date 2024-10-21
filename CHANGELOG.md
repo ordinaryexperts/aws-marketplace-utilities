@@ -1,5 +1,7 @@
 # Unreleased
 
+* Adding Ubuntu 24.04 support
+
 # 1.5.1
 
 * Upgrading to Docker Compose V2
