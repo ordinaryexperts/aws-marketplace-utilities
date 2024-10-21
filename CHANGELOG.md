@@ -1,6 +1,7 @@
 # Unreleased
 
 * Adding Ubuntu 24.04 support
+* Dropping Ubuntu 20.04 support
 
 # 1.5.1
 
