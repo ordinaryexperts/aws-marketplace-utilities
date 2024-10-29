@@ -1,6 +1,6 @@
 #!/bin/bash -ex
 
-echo "$(date): ### Starting ubuntu_2004_2204_preinstall.sh ###"
+echo "$(date): ### Starting ubuntu_2204_2404_preinstall.sh ###"
 
 # parsing command line options
 INSTALL_CODE_DEPLOY_AGENT=false
@@ -43,7 +43,11 @@ apt-get -y install curl git jq ntp software-properties-common unzip vim wget zip
 
 # install latest CFN utilities
 apt-get -y install python3-pip
-pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+if [[ $(lsb_release -si) == "Ubuntu" && $(lsb_release -sr) == "24.04" ]]; then
+    pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz --break-system-packages
+else
+    pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+fi
 
 # install aws cli
 cd /tmp
@@ -52,8 +56,8 @@ if [ "$USE_GRAVITON" = true ]; then
 else
   curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
 fi
-unzip awscliv2.zip
-./aws/install
+unzip -o awscliv2.zip
+./aws/install --update
 cd -
 
 # install CloudWatch agent
@@ -96,4 +100,4 @@ cd /opt/aws/rds
 wget https://www.amazontrust.com/repository/AmazonRootCA1.pem
 cd -
 
-echo "$(date): ### Finished ubuntu_2004_2204_preinstall.sh ###"
+echo "$(date): ### Finished ubuntu_2204_2404_preinstall.sh ###"
