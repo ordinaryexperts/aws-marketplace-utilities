@@ -2,6 +2,9 @@
 
 * Adding Ubuntu 24.04 support
 * Dropping Ubuntu 20.04 support
+* Adding plf-skip-pricing Make command
+* Adding plf-skip-region Make command
+* Adding plf-skip-pricing-and-region Make command
 
 # 1.5.1
 

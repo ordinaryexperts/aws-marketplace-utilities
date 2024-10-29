@@ -70,6 +70,15 @@ gen-plf: build
 plf: build
 	docker compose run -w /code --rm devenv python3 /scripts/plf.py $(AMI_ID) $(TEMPLATE_VERSION)
 
+plf-skip-pricing: build
+	docker compose run -w /code --rm devenv python3 /scripts/plf.py $(AMI_ID) $(TEMPLATE_VERSION) --skip-pricing-update
+
+plf-skip-region: build
+	docker compose run -w /code --rm devenv python3 /scripts/plf.py $(AMI_ID) $(TEMPLATE_VERSION) --skip-region-update
+
+plf-skip-pricing-and-region: build
+	docker compose run -w /code --rm devenv python3 /scripts/plf.py $(AMI_ID) $(TEMPLATE_VERSION) --skip-region-update --skip-pricing-update
+
 lint: build
 	docker compose run -w /code --rm devenv bash /scripts/lint.sh
 
