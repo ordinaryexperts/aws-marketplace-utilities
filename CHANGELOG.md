@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.6.1
+
+* Fix cfn bootstrap issue via pip upgrade
+
 # 1.6.0
 
 * Adding Ubuntu 24.04 support
