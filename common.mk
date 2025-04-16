@@ -85,6 +85,9 @@ lint: build
 publish: build
 	docker compose run -w /code --rm devenv bash /scripts/publish-template.sh $(TEMPLATE_VERSION)
 
+publish-diagram: build
+	docker compose run -w /code --rm devenv bash /scripts/publish-diagram.sh $(TEMPLATE_VERSION)
+
 rebuild:
 	docker compose build --no-cache devenv
 

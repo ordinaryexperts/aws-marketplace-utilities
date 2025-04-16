@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.6.2
+
+* Adding publish-diagram Make command
+
 # 1.6.1
 
 * Fix cfn bootstrap issue via pip upgrade
