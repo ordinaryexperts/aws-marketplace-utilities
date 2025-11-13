@@ -1,5 +1,8 @@
 # Unreleased
 
+* Adding session command for SSM Session
+* Adding integration testing Make targets (test-integration, test-integration-ui, test-integration-all)
+
 # 1.6.2
 
 * Adding publish-diagram Make command

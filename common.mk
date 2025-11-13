@@ -91,6 +91,27 @@ publish-diagram: build
 rebuild:
 	docker compose build --no-cache devenv
 
+session: build
+	@docker compose run -w /code --rm devenv bash -c '\
+		REGION=us-east-1; \
+		STACK_NAME=oe-patterns-mastodon-$$USER; \
+		echo "Getting instance ID from stack: $$STACK_NAME"; \
+		ASG_NAME=$$(aws cloudformation describe-stack-resources \
+			--region $$REGION \
+			--stack-name $$STACK_NAME \
+			--logical-resource-id Asg \
+			--query "StackResources[0].PhysicalResourceId" \
+			--output text); \
+		echo "Auto Scaling Group: $$ASG_NAME"; \
+		INSTANCE_ID=$$(aws autoscaling describe-auto-scaling-groups \
+			--region $$REGION \
+			--auto-scaling-group-names $$ASG_NAME \
+			--query "AutoScalingGroups[0].Instances[0].InstanceId" \
+			--output text); \
+		echo "Instance ID: $$INSTANCE_ID"; \
+		echo "Starting SSM session..."; \
+		aws ssm start-session --region $$REGION --target $$INSTANCE_ID'
+
 synth: build
 	docker compose run -w /code/cdk --rm devenv cdk synth \
 	--version-reporting false \
@@ -119,3 +140,17 @@ test-main:
 
 list-all-stacks: build
 	docker compose run -w /code --rm devenv bash /scripts/list-all-stacks.sh
+
+# Integration testing targets
+# Requires test/integration/ directory with pytest tests
+# Projects can override INTEGRATION_TEST_FILE to test different files
+INTEGRATION_TEST_FILE ?= test_health.py
+
+test-integration: build
+	docker compose run -w /code/test/integration --rm devenv pytest $(INTEGRATION_TEST_FILE) -v
+
+test-integration-ui: build
+	docker compose run -w /code/test/integration --rm devenv pytest test_workflows.py -m ui -v
+
+test-integration-all: build
+	docker compose run -w /code/test/integration --rm devenv pytest -v
