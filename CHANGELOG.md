@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.7.0
+
 * Adding session command for SSM Session
 * Adding integration testing Make targets (test-integration, test-integration-ui, test-integration-all)
 
