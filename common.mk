@@ -8,7 +8,8 @@ ami-docker-rebuild:
 	docker compose build --no-cache ami
 
 ami-ec2-build:
-	docker compose run -w /code --rm devenv bash /scripts/packer.sh $(TEMPLATE_VERSION)
+	@mkdir -p logs
+	docker compose run -w /code --rm devenv bash /scripts/packer.sh $(TEMPLATE_VERSION) 2>&1 | tee logs/ami-build-$(shell date +%Y%m%d-%H%M%S).log
 
 ami-ec2-copy:
 	docker compose run -w /code --rm devenv bash /scripts/copy-image.sh $(AMI_ID)
