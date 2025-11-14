@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.7.1
+
+* Save logs for AMI builds
+
 # 1.7.0
 
 * Adding session command for SSM Session
