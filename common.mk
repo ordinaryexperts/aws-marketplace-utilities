@@ -23,6 +23,9 @@ build:
 cdk-bootstrap:
 	docker compose run -w /code/cdk --rm devenv cdk bootstrap aws://992593896645/us-east-1
 
+clean-cdk:
+	docker compose run -w /code/cdk --rm devenv rm -rf cdk.out
+
 clean:
 	docker compose run -w /code --rm devenv bash /scripts/cleanup.sh
 
@@ -59,10 +62,10 @@ clean-snapshots-tcat:
 clean-snapshots-tcat-all-regions:
 	docker compose run -w /code --rm devenv bash /scripts/cleanup.sh snapshots tcat all
 
-destroy: build
+destroy: build clean-cdk
 	docker compose run -w /code/cdk --rm devenv cdk destroy
 
-diff:
+diff: clean-cdk
 	docker compose run -w /code/cdk --rm devenv cdk diff
 
 gen-plf: build
@@ -113,13 +116,13 @@ session: build
 		echo "Starting SSM session..."; \
 		aws ssm start-session --region $$REGION --target $$INSTANCE_ID'
 
-synth: build
+synth: build clean-cdk
 	docker compose run -w /code/cdk --rm devenv cdk synth \
 	--version-reporting false \
 	--path-metadata false \
 	--asset-metadata false
 
-synth-to-file: build
+synth-to-file: build clean-cdk
 	mkdir -p dist && docker compose run -w /code --rm devenv bash -c "cd cdk \
 	&& cdk synth \
 	--version-reporting false \
