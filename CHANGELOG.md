@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.7.5
+
+* fixing ubuntu 24.04 pip
+
 # 1.7.4
 
 * fixing pip install commands

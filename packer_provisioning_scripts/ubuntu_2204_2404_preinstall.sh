@@ -44,7 +44,8 @@ apt-get -y install curl git jq ntp software-properties-common unzip vim wget zip
 # install latest CFN utilities
 apt-get -y install python3-pip
 if [[ $(lsb_release -si) == "Ubuntu" && $(lsb_release -sr) == "24.04" ]]; then
-    python3 -m pip install --upgrade pip setuptools packaging --break-system-packages
+    # Don't upgrade pip itself on 24.04 - it was installed by apt and can't be upgraded this way
+    python3 -m pip install --upgrade setuptools packaging --break-system-packages
     python3 -m pip install https://s3.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz --break-system-packages
 else
     python3 -m pip install --upgrade pip setuptools packaging
