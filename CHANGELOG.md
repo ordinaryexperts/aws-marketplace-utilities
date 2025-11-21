@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.7.4
+
+* fixing pip install commands
+
 # 1.7.3
 
 * update pip install commands
