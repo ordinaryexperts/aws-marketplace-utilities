@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.7.3
+
+* update pip install commands
+
 # 1.7.2
 
 * add make clean-cdk and updated cdk related actions
