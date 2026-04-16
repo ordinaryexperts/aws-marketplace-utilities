@@ -86,3 +86,37 @@ Always read the release notes between the current and target versions. Flag:
 - Breaking config changes (env vars removed/renamed)
 - Minimum runtime version bumps (Ruby, Node, Python, PHP)
 - Removed features you depend on
+
+## Phase 2: Code changes
+
+**Success criterion:** `make synth` and `make lint` both succeed with the new version in place. No CDK template errors.
+
+### 2.1 Create a feature branch (if not already on one)
+
+```bash
+cd /path/to/pattern-repo
+git checkout develop
+git pull
+git checkout -b feature/upgrade
+```
+
+### 2.2 Bump the version variable
+
+Edit `packer/ubuntu_2404_appinstall.sh` (or `packer/ubuntu_2204_appinstall.sh` for older WordPress). Update the single version variable identified in Phase 1.
+
+If Phase 1 found additional dependency changes:
+- New Ruby version → update `RUBY_VERSION=`
+- New Node major → update the `setup_XX.x` curl URL in the Node.js section
+- New Python minor → update `PYTHON_VERSION=`
+- New packer script version from this utilities repo → update `SCRIPT_VERSION=`
+
+### 2.3 Local validation
+
+```bash
+make synth
+make lint
+```
+
+Expected: synth writes `cdk.out/` without errors; lint reports no issues (or only pre-existing warnings).
+
+If synth errors, the upstream change may have required a CDK code change. Investigate and fix before continuing.
