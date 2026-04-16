@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.8.0
+
 - Added `UPGRADE.md` — end-to-end upstream-version upgrade workflow for pattern repos.
 
 # 1.7.5
