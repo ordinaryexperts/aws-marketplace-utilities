@@ -120,3 +120,50 @@ make lint
 Expected: synth writes `cdk.out/` without errors; lint reports no issues (or only pre-existing warnings).
 
 If synth errors, the upstream change may have required a CDK code change. Investigate and fix before continuing.
+
+## Phase 3: AMI build
+
+**Success criterion:** Packer build exits 0. New AMI ID captured. `AMI_ID` constant in the CDK stack updated.
+
+### 3.1 Build the AMI
+
+```bash
+AWS_PROFILE=oe-patterns-dev make ami-ec2-build TEMPLATE_VERSION=<new-version>
+```
+
+Typical duration: 20-40 minutes depending on the pattern.
+
+Build output is also saved to `logs/ami-build-YYYYMMDD-HHMMSS.log` (see utilities repo README).
+
+### 3.2 Capture the new AMI ID
+
+The successful build prints lines like:
+
+```
+--> amazon-ebs: AMIs were created:
+us-east-1: ami-0827c962454fe7bc0
+```
+
+Or at the bottom:
+
+```
+AMI_ID="ami-0827c962454fe7bc0"
+```
+
+### 3.3 Update the CDK stack
+
+Edit `cdk/<app>/<app>_stack.py`. Find the `AMI_ID=` constant near the top:
+
+```python
+AMI_ID="ami-0827c962454fe7bc0" # ordinary-experts-patterns-<app>-<version>
+```
+
+Update both the ID and the trailing comment.
+
+### 3.4 Verify synth still passes
+
+```bash
+make synth
+```
+
+Expected: clean synth with the new AMI ID.
