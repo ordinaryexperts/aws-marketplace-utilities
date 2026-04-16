@@ -22,3 +22,7 @@ Add the following to your project's `.gitignore`:
 # AMI build logs
 logs/
 ```
+
+## Upgrade Workflow
+
+See [UPGRADE.md](./UPGRADE.md) for the end-to-end process of upgrading the upstream application version in any AWS Marketplace pattern repo that uses `common.mk`.
