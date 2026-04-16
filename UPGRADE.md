@@ -300,3 +300,54 @@ For partial updates, use `make plf-skip-pricing` or `make plf-skip-region` as ap
 - Confirm the AMI IDs match the copied regions
 - Confirm the template URL resolves and is the correct version
 - Submit for AWS review if required by the product lifecycle
+
+## Troubleshooting
+
+### AMI build fails
+
+**Symptoms:** `make ami-ec2-build` exits non-zero, Packer logs show provisioning errors.
+
+- Missing system packages — upstream may have added a new dependency. Add to the `apt install` line in the packer script.
+- Runtime version mismatch — upstream bumped Ruby/Node/Python. Update the version variable in the packer script (see Phase 1.3).
+- Network timeout during `git clone` or `apt-get` — retry; if persistent, the upstream repo/package mirror may be down.
+- Asset precompile OOM — increase Packer instance type in `packer/ami.json`.
+
+### `make synth` errors
+
+**Symptoms:** CDK throws during synthesis.
+
+- CDK library mismatch — check `cdk/setup.py` for `oe-patterns-cdk-common` pin; upgrade if needed.
+- Missing `CfnParameter` — the upstream upgrade may require a new configuration parameter. Add to the stack.
+- Python import errors — run `make build` to rebuild the devenv container.
+
+### Taskcat `CREATE_FAILED`
+
+**Symptoms:** Stack creation fails during `make test-main`.
+
+- EC2 instances fail health checks — most common. Investigate user_data execution:
+  - CloudFormation console → Events tab on the failed stack
+  - Use the `debugging-ec2-user-data` skill
+  - SSM session into the instance, check `/var/log/cloud-init-output.log` and `/var/log/syslog`
+- Secrets Manager access denied — IAM role change needed
+- Database connection — Aurora may not be ready; check timeouts in user_data.sh
+
+### Taskcat `DELETE_FAILED`
+
+**Symptoms:** Taskcat cannot fully tear down resources after test.
+
+- S3 bucket not empty — use the AWS console or CLI to empty then delete
+- Snapshot retention — run `make clean-snapshots-tcat`
+- Orphaned security groups / ENIs — manual cleanup in the AWS console
+
+### AMI copy timeouts
+
+**Symptoms:** `make ami-ec2-copy` hangs or fails in a specific region.
+
+- EBS snapshot quota — check Service Quotas in the target region
+- Cross-region bandwidth — retry the specific region
+- Region not enabled on the account — enable or skip
+
+### Reference: existing skills
+
+- `debugging-ec2-user-data` — step-by-step EC2 boot failure investigation
+- Pattern repo `CLAUDE.md` — project-specific context and conventions
