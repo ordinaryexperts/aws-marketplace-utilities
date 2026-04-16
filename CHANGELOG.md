@@ -1,5 +1,7 @@
 # Unreleased
 
+- Added `UPGRADE.md` — end-to-end upstream-version upgrade workflow for pattern repos.
+
 # 1.7.5
 
 * fixing ubuntu 24.04 pip
