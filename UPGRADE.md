@@ -263,3 +263,40 @@ git merge --no-ff release/<new-pattern-version>
 git branch -d release/<new-pattern-version>
 git push origin main develop <new-pattern-version>
 ```
+
+## Phase 6: Marketplace publishing
+
+**Success criterion:** AMI copied to all supported regions. CloudFormation template published to S3. PLF submitted and visible in the AWS Marketplace console.
+
+### 6.1 Copy the AMI to all supported regions
+
+```bash
+AWS_PROFILE=oe-patterns-dev make ami-ec2-copy AMI_ID=<new-ami-id>
+```
+
+Duration: 10-20 minutes. If any region fails, re-run just that region manually or retry the target.
+
+### 6.2 Publish the CloudFormation template to S3
+
+```bash
+AWS_PROFILE=oe-patterns-dev make publish TEMPLATE_VERSION=<new-pattern-version>
+```
+
+This uploads the synthesized template to the public artifact bucket used by the Marketplace listing.
+
+### 6.3 Generate and submit the PLF
+
+```bash
+AWS_PROFILE=oe-patterns-dev make gen-plf AMI_ID=<new-ami-id> TEMPLATE_VERSION=<new-pattern-version>
+AWS_PROFILE=oe-patterns-dev make plf AMI_ID=<new-ami-id> TEMPLATE_VERSION=<new-pattern-version>
+```
+
+For partial updates, use `make plf-skip-pricing` or `make plf-skip-region` as appropriate.
+
+### 6.4 Verify in AWS Marketplace Management Portal
+
+- Log in to the AWS Marketplace Management Portal
+- Confirm the new version appears in the product's version list
+- Confirm the AMI IDs match the copied regions
+- Confirm the template URL resolves and is the correct version
+- Submit for AWS review if required by the product lifecycle
