@@ -158,3 +158,16 @@ test-integration-ui: build
 
 test-integration-all: build
 	docker compose run -w /code/test/integration --rm devenv pytest -v
+
+# AWS Marketplace Catalog API targets
+# Requires marketplace_config.yaml in project root
+marketplace-validate: build
+	docker compose run -w /code --rm devenv python3 /scripts/marketplace.py validate
+
+marketplace-submit: build
+	docker compose run -w /code --rm devenv python3 /scripts/marketplace.py submit \
+		--ami-id $(AMI_ID) \
+		--version $(TEMPLATE_VERSION)
+
+marketplace-status: build
+	docker compose run -w /code --rm devenv python3 /scripts/marketplace.py status $(if $(CHANGESET_ID),--changeset-id $(CHANGESET_ID),)
