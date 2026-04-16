@@ -167,3 +167,62 @@ make synth
 ```
 
 Expected: clean synth with the new AMI ID.
+
+## Phase 4: Integration test
+
+**Success criterion:** `make test-main` completes with taskcat reporting `CREATE_COMPLETE` in all configured regions and no stack rollback.
+
+### 4.1 Run taskcat
+
+```bash
+AWS_PROFILE=oe-patterns-dev make test-main
+```
+
+Typical duration: 20-40 minutes.
+
+### 4.2 Interpret results
+
+Search the output (or the taskcat log under `taskcat_outputs/`) for:
+
+- `CREATE_COMPLETE` — stack deployed successfully
+- `CREATE_FAILED` / `ROLLBACK_IN_PROGRESS` — stack failed; investigate
+- `DELETE_COMPLETE` — taskcat cleaned up after itself
+
+Example successful tail:
+
+```
+[INFO   ] : ┏ stack Ⓜ tCaT-<stack-name>
+[INFO   ] : ┣ region: us-east-1
+[INFO   ] : ┗ status: CREATE_COMPLETE
+```
+
+### 4.3 If tests fail
+
+Most test failures manifest as EC2 user data script errors (the stack creates fine but instances fail to become healthy).
+
+- Check CloudFormation events in the AWS console for the failure reason
+- Check EC2 user data logs via the `debugging-ec2-user-data` skill — CloudWatch Logs group `/aws/ec2/<stack>` or SSM session on the instance
+- Check `/var/log/cloud-init-output.log` on the instance for script errors
+
+Common causes:
+- Upstream app expects a newer runtime version that wasn't updated in the packer script
+- Upstream config format changed; user_data.sh needs an update
+- Network/IAM issue fetching secrets from Secrets Manager
+
+### 4.4 Clean up failed tests
+
+If taskcat leaves stacks or buckets behind:
+
+```bash
+make clean-snapshots-tcat
+make clean-logs-tcat
+make clean-buckets-tcat
+```
+
+### 4.5 Commit
+
+```bash
+git add packer/*.sh cdk/*/*_stack.py
+git commit -m "feat: upgrade to <upstream> <new-version>"
+git push -u origin feature/upgrade
+```
