@@ -226,3 +226,40 @@ git add packer/*.sh cdk/*/*_stack.py
 git commit -m "feat: upgrade to <upstream> <new-version>"
 git push -u origin feature/upgrade
 ```
+
+## Phase 5: Release
+
+**Success criterion:** Version tag pushed to origin. `CHANGELOG.md` updated and merged to `develop` and `main`.
+
+This follows git-flow.
+
+### 5.1 Open a PR from feature/upgrade → develop
+
+Use `gh pr create` or the GitHub web UI. Get review, merge.
+
+### 5.2 Start a release branch
+
+```bash
+git checkout develop
+git pull
+git checkout -b release/<new-pattern-version>
+```
+
+The pattern version is independent from the upstream version — it is the version of the CloudFormation template / Marketplace product (e.g. `2.4.0`). Bump major/minor/patch per semver of what changed.
+
+### 5.3 Update CHANGELOG.md
+
+Document the upgrade, breaking changes, and any manual migration steps users need to follow.
+
+### 5.4 Finish the release
+
+```bash
+git commit -am "<pattern-version>"
+git checkout main
+git merge --no-ff release/<new-pattern-version>
+git tag <new-pattern-version>
+git checkout develop
+git merge --no-ff release/<new-pattern-version>
+git branch -d release/<new-pattern-version>
+git push origin main develop <new-pattern-version>
+```
