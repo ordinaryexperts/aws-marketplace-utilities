@@ -63,7 +63,7 @@ clean-snapshots-tcat-all-regions:
 	docker compose run -w /code --rm devenv bash /scripts/cleanup.sh snapshots tcat all
 
 destroy: build clean-cdk
-	docker compose run -w /code/cdk --rm devenv cdk destroy
+	docker compose run -w /code/cdk --rm devenv cdk destroy --force
 
 diff: clean-cdk
 	docker compose run -w /code/cdk --rm devenv cdk diff
