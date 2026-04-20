@@ -38,6 +38,14 @@ Do NOT use this doc for:
 
 **Why Phase 7 is separate:** If Marketplace submission fails after you've already merged the release branch and pushed the tag, you have to back out published commits. Keep the release branch open through Phase 6.
 
+## Phase 0: Read pattern-specific notes
+
+Before starting, check the pattern's own `CLAUDE.md` for an "Upgrade Workflow" section or similar. Some patterns have pattern-specific gotchas that live there (image pinning conventions, root volume minimums, config file layouts, etc.) — they supplement this doc rather than duplicate it.
+
+Examples:
+- Discourse: `discourse/base` image must be pinned in `packer/ubuntu_2404_appinstall.sh` in **both** the `git checkout <sha>` of `discourse_docker` AND the `docker pull discourse/base:<version>` — both must reference the same image version. Needs 40GB root volume.
+- Mastodon: uses `setup.py` + `-e .` in `requirements.txt` (not all patterns do).
+
 ## Phase 1: Research
 
 **Success criterion:** You have identified the target upstream version and reviewed its dependency diff against the currently-deployed version. No hard blockers (e.g., major runtime version bump requiring packer script changes) are unaddressed.
@@ -118,7 +126,58 @@ If Phase 1 found additional dependency changes:
 - New Python minor → update `PYTHON_VERSION=`
 - New packer script version from this utilities repo → update `SCRIPT_VERSION=`
 
-### 2.3 Local validation
+### 2.3 Update the pattern's `Dockerfile` (if bumping from devenv < 2.7.0)
+
+devenv `:2.7.0` switched to Ubuntu 24.04 / Python 3.12, which enforces PEP 668 (externally-managed environment). The pattern's `Dockerfile` needs `--break-system-packages` on `pip3 install`:
+
+```dockerfile
+RUN pip3 install -r requirements.txt --break-system-packages
+```
+
+Without this, `make synth`/`make build` fails with `error: externally-managed-environment`.
+
+Patterns have two dependency-management conventions — both are supported:
+
+- **`-e .` + `setup.py`** (used by mastodon): `requirements.txt` has `-e .`; versions are pinned in `cdk/setup.py`. Dockerfile must `COPY ./cdk/setup.py /tmp/code/cdk/` before `pip3 install`.
+- **Plain requirements** (used by discourse): `cdk/requirements.txt` pins `aws-cdk-lib==X` and `oe-patterns-cdk-common@git+https://...@TAG` directly. No `setup.py`.
+
+When bumping `oe-patterns-cdk-common`, update the correct file for the pattern's convention.
+
+### 2.3.1 Introduce versioned AMI parameter suffix (if not already present)
+
+Going forward, all patterns should use a versioned CloudFormation parameter for the AMI (e.g. `AsgAmiIdv240` for version `2.4.0`, not bare `AsgAmiId`). This makes parameter names change with each release, so CloudFormation treats the AMI swap as a real parameter change and doesn't silently reuse the prior value. It also keeps each pattern version's stack-update story clean.
+
+If the pattern already uses `AsgAmiIdvXXX` (mastodon as of 2.3.0+), just bump the suffix to the new version:
+
+1. Edit `cdk/<app>/<app>_stack.py`:
+   ```python
+   AMI_ID = "ami-<current>"  # will be updated in Phase 3
+   NEXT_RELEASE_PREFIX = "v240"  # bump to new version, dots stripped
+   ```
+2. Ensure the `Asg()` call passes `ami_id_param_name_suffix=NEXT_RELEASE_PREFIX`.
+3. Update the `Makefile` `deploy` target parameter name: `--parameters AsgAmiIdv240=ami-...`.
+
+If the pattern still uses bare `AsgAmiId` (older patterns like discourse pre-1.2.0), introduce the convention:
+
+1. In `cdk/<app>/<app>_stack.py`, add `NEXT_RELEASE_PREFIX = "v120"` right under the `AMI_ID` constant.
+2. Add `ami_id_param_name_suffix=NEXT_RELEASE_PREFIX` to the `Asg(...)` construct call.
+3. Rename the `Makefile` deploy parameter: `AsgAmiId` → `AsgAmiIdv120`.
+4. In `marketplace_config.yaml`, set `ami_parameter_pattern: "AsgAmiIdv{version}"`.
+
+Requires `oe-patterns-cdk-common >= 4.2.6` (first version with `ami_id_param_name_suffix` arg on `Asg`). If the pattern is on an older common library, Phase 2.4 bumps it.
+
+### 2.4 Bump library versions (recommended)
+
+When jumping across several devenv major versions, also bump the CDK and common-library pins to match the latest known-good combination. As of this writing, the mastodon 2.4.0 release uses:
+
+```
+aws-cdk-lib==2.225.0
+oe-patterns-cdk-common@4.5.0
+```
+
+If you're bumping `oe-patterns-cdk-common` across `4.3.0`, Aurora PostgreSQL is auto-upgraded (15.4 → 15.13, **causes downtime on existing deployments**) and ElastiCache Redis is upgraded (6.2 → 7.0). Note these in CHANGELOG and communicate to users.
+
+### 2.5 Local validation
 
 ```bash
 make synth
@@ -131,21 +190,63 @@ If synth errors, the upstream change may have required a CDK code change. Invest
 
 ## Phase 3: AMI build
 
-**Success criterion:** Packer build exits 0. New AMI ID captured. `AMI_ID` constant in the CDK stack updated.
+**Success criterion:** Packer build(s) exit 0. New AMI ID captured. `AMI_ID` constant in the CDK stack updated.
 
-### 3.1 Build the AMI
+Two AMI builds are needed over the full release cycle:
 
-Build in the **prod** account (`oe-patterns-prod`) — AWS Marketplace's ingestion role reads AMIs from there:
+- **Dev AMI** (this phase) — for Phase 4 taskcat/local-deploy testing. Builds under `oe-patterns-dev`.
+- **Prod AMI** (Phase 6 prerequisite) — for AWS Marketplace ingestion. Builds under `oe-patterns-prod`.
+
+Building dev first catches pattern/infrastructure bugs before spending the 20-40 min on a second build and before touching Marketplace.
+
+### 3.1 Build the dev AMI (for testing)
 
 ```bash
-AWS_PROFILE=oe-patterns-prod make ami-ec2-build TEMPLATE_VERSION=<new-version>
+AWS_PROFILE=oe-patterns-dev make ami-ec2-build TEMPLATE_VERSION=<new-version>
 ```
 
-Typical duration: 20-40 minutes depending on the pattern.
+Typical duration: 20-40 minutes depending on the pattern (Discourse is slower because it pulls the full `discourse/base` image).
 
 Build output is also saved to `logs/ami-build-YYYYMMDD-HHMMSS.log` (add `logs/` to `.gitignore` if it isn't already).
 
-> **Account choice matters.** If you build in `oe-patterns-dev` by mistake, `marketplace-submit` in Phase 6 will fail with `IMAGE_ACCESS_EXCEPTION` — the Marketplace role only has access to AMIs in the prod account. For taskcat/local testing (Phase 4), a separate AMI may be built in `oe-patterns-dev` — see Phase 7.
+### 3.2 Capture the new AMI ID
+
+The successful build prints lines like:
+
+```
+--> amazon-ebs: AMIs were created:
+us-east-1: ami-0827c962454fe7bc0
+```
+
+Or at the bottom:
+
+```
+AMI_ID="ami-0827c962454fe7bc0"
+```
+
+### 3.3 Update the CDK stack and Makefile with the dev AMI
+
+Edit `cdk/<app>/<app>_stack.py`:
+
+```python
+AMI_ID = "ami-<new-dev-ami>"  # ordinary-experts-patterns-<app>-<version>-...
+```
+
+Edit `Makefile` `deploy` target to reference the same AMI via the versioned parameter name from Phase 2.3.1:
+
+```make
+--parameters AsgAmiIdv240=ami-<new-dev-ami>
+```
+
+### 3.4 Verify synth still passes
+
+```bash
+make synth
+```
+
+Expected: clean synth with the new AMI ID.
+
+> **Note:** The prod AMI build happens later, as a Phase 6 prerequisite. Same packer invocation, different profile — and you'll re-update `AMI_ID` to the prod AMI before `marketplace-submit`.
 
 ### 3.2 Capture the new AMI ID
 
@@ -182,19 +283,76 @@ Expected: clean synth with the new AMI ID.
 
 ## Phase 4: Integration test
 
-**Success criterion:** `make test-main` completes with taskcat reporting `CREATE_COMPLETE` in all configured regions and no stack rollback.
+**Success criterion:** Dev stack deploys successfully, basic smoke tests pass, manual verification approved, then `make test-main` taskcat run completes with `CREATE_COMPLETE` in all regions.
 
-### 4.1 Run taskcat
+This phase has five sub-steps, in order:
+
+1. `make deploy` to dev account (single interactive stack, ~20-30 min)
+2. Run playwright smoke tests against that stack
+3. Notify user to manually verify the running site
+4. On approval, `make destroy` to tear down
+5. `make test-main` (taskcat) as the final multi-region regression check
+
+### 4.1 Deploy the single dev stack
+
+```bash
+AWS_PROFILE=oe-patterns-dev make deploy
+```
+
+Deploys to `<app>-${USER}.dev.patterns.ordinaryexperts.com` using the hardcoded parameters in the `Makefile` `deploy` target (cert, DNS zone, admin email, etc.). Uses the dev AMI from Phase 3.
+
+Typical duration: 20-30 minutes.
+
+> **VPC parameter hygiene.** Some older pattern Makefiles hardcode `VpcId` / `VpcPrivateSubnet*Id` / `VpcPublicSubnet*Id` in the `deploy` target pointing at a specific dev-account VPC that no longer exists. If the deploy fails with `vpc ID 'vpc-...' does not exist`, either:
+> - **Remove those parameters** from the Makefile (lets the CDK stack create a fresh VPC — the common approach, used by mastodon), or
+> - Update the IDs to a VPC that currently exists in the dev account.
+> 
+> Creating a fresh VPC adds NAT Gateway cost for the duration of the test but avoids this failure mode entirely and matches what taskcat does.
+
+> **Retry after CREATE_FAILED.** CloudFormation leaves the failed stack in `ROLLBACK_COMPLETE`. CDK will refuse to re-deploy until it's deleted: `aws cloudformation delete-stack --stack-name <app>-${USER}` then re-run `make deploy`.
+
+### 4.2 Run basic playwright smoke tests
+
+```bash
+AWS_PROFILE=oe-patterns-dev make test-integration
+```
+
+The `test-integration` target runs pytest + playwright against the deployed dev site (see `test/integration/`). Each pattern should have at minimum:
+- Home page loads over HTTPS
+- Expected title / branding renders
+- Auth / login entry point is present
+- Any pattern-specific API healthcheck returns 200
+
+**Patterns without `test/integration/`:** add basic playwright tests during the upgrade. See `aws-marketplace-oe-patterns-mastodon/test/integration/` for the conventional structure. If you don't add them this release, note it as a follow-up and skip to 4.3.
+
+### 4.3 Manual verification
+
+Report the deployed URL to the user and pause for approval:
+
+- Open the site in a browser and confirm it renders correctly.
+- Register the initial admin account (per `usage_instructions` in `marketplace_config.yaml`).
+- Walk through the primary user flow (post a toot, start a meeting, open a forum topic, etc.).
+- Check for regressions against the prior version's key features.
+
+Do not proceed to 4.4 without explicit user approval.
+
+### 4.4 Destroy the dev stack
+
+```bash
+AWS_PROFILE=oe-patterns-dev make destroy
+```
+
+Tears down VPC, Aurora, Redis, ALB, ASG, EFS, S3, Route53 records. Some resources (S3 buckets with objects, log groups) may have `RETAIN` deletion policies — clean those up manually if needed. Verify with `aws cloudformation describe-stacks` that no `<app>-${USER}` stack remains.
+
+### 4.5 Run taskcat as the final regression check
 
 ```bash
 AWS_PROFILE=oe-patterns-dev make test-main
 ```
 
-Typical duration: 20-40 minutes.
+Taskcat deploys in parallel across configured regions and auto-destroys. Typical duration: 20-40 minutes.
 
-### 4.2 Interpret results
-
-Search the output (or the taskcat log under `taskcat_outputs/`) for:
+Interpret results — search the output (or the taskcat log under `taskcat_outputs/`) for:
 
 - `CREATE_COMPLETE` — stack deployed successfully
 - `CREATE_FAILED` / `ROLLBACK_IN_PROGRESS` — stack failed; investigate
@@ -208,9 +366,9 @@ Example successful tail:
 [INFO   ] : ┗ status: CREATE_COMPLETE
 ```
 
-### 4.3 If tests fail
+### 4.6 If any step fails
 
-Most test failures manifest as EC2 user data script errors (the stack creates fine but instances fail to become healthy).
+Most failures manifest as EC2 user data script errors (the stack creates fine but instances fail to become healthy).
 
 - Check CloudFormation events in the AWS console for the failure reason
 - Check EC2 user data logs via the `debugging-ec2-user-data` skill — CloudWatch Logs group `/aws/ec2/<stack>` or SSM session on the instance
@@ -221,8 +379,6 @@ Common causes:
 - Upstream config format changed; user_data.sh needs an update
 - Network/IAM issue fetching secrets from Secrets Manager
 
-### 4.4 Clean up failed tests
-
 If taskcat leaves stacks or buckets behind:
 
 ```bash
@@ -231,7 +387,7 @@ make clean-logs-tcat
 make clean-buckets-tcat
 ```
 
-### 4.5 Commit
+### 4.7 Commit
 
 ```bash
 git add packer/*.sh cdk/*/*_stack.py
@@ -280,8 +436,9 @@ This phase uses the AWS Marketplace Catalog API via `scripts/marketplace.py` (sh
 
 ### Prerequisites
 
+- **Prod AMI built** — run `AWS_PROFILE=oe-patterns-prod make ami-ec2-build TEMPLATE_VERSION=<version>` (same packer invocation as Phase 3.1, different profile). The Marketplace ingestion role only reads AMIs from the prod account. Update `AMI_ID` in `cdk/<app>/<app>_stack.py` to the new prod AMI ID before running `marketplace-submit` in 6.2.
 - `marketplace_config.yaml` exists in the repo root. Required fields:
-  - `product_id` — the AWS Marketplace product UUID (from the Management Portal)
+  - `product_id` — the AWS Marketplace product identifier (from the Management Portal). Older products use UUID format (e.g. `d0a98067-9a26-440a-858e-00193a953934`), newer products use the `prod-*` format (e.g. `prod-xytpfnlptgpg6`). Both work with `marketplace.py`.
   - `ami_access_role_arn` — IAM role that lets Marketplace read the AMI. **Use `arn:aws:iam::879777583535:role/AWSMarketplaceAMIScanning`** — this is the role with the AWS-managed `AWSMarketplaceAmiIngestion` policy attached. Do **not** use `arn:aws:iam::879777583535:role/AwsMarketplaceAmiIngestion`; its inline policy is incomplete and causes `IMAGE_ACCESS_EXCEPTION`.
   - `ami_parameter_pattern` — e.g. `AsgAmiIdv{version}` (version with dots stripped)
   - `template_bucket`, `template_pattern` — where the CFN template is published. See "Known upstream issue" below: `template_bucket` is currently ignored by `publish-template.sh` — the hardcoded value `ordinary-experts-aws-marketplace-pattern-artifacts` is used.
@@ -435,16 +592,18 @@ git branch -d release/<new-pattern-version>
 git push origin main develop <new-pattern-version>
 ```
 
-### 7.2 Build a dev AMI for taskcat regression tests (optional but recommended)
+### 7.2 Restore the dev AMI reference for taskcat
 
-CI runs weekly taskcat tests against the AMI referenced in `mastodon_stack.py`. If the AMI is in `oe-patterns-prod`, taskcat (which runs in `oe-patterns-dev`) cannot find it. Build a twin AMI in the dev account:
+CI runs weekly taskcat tests against the AMI referenced in `cdk/<app>/<app>_stack.py`. If the stack is left pointing at the **prod** AMI used for Marketplace submission, taskcat (running in `oe-patterns-dev`) cannot find it. Put the dev AMI ID from Phase 3 back into the stack on `develop`:
 
 ```bash
-AWS_PROFILE=oe-patterns-dev make ami-ec2-build TEMPLATE_VERSION=<new-version>
-# Update AMI_ID in cdk/<app>/<app>_stack.py to the dev AMI
-git commit -am "Updated dev AMI for taskcat post-<new-version> release"
+git checkout develop
+# Edit cdk/<app>/<app>_stack.py: AMI_ID = "<dev-ami-id-from-phase-3.2>"
+git commit -am "Restore dev AMI reference for post-<new-version> taskcat"
 git push origin develop
 ```
+
+Alternative: if the dev AMI is stale (older than the prod AMI built in Phase 6 prerequisites), run `AWS_PROFILE=oe-patterns-dev make ami-ec2-build` again to refresh.
 
 (Multi-region `make ami-ec2-copy` is no longer needed — taskcat runs in us-east-1 and the Marketplace Catalog API handles multi-region replication of the prod AMI automatically.)
 
