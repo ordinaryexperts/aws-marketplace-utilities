@@ -30,13 +30,17 @@ Do NOT use this doc for:
 
 1. **Research** — identify target version, diff dependencies
 2. **Code changes** — bump version in packer script, validate locally
-3. **AMI build** — build new AMI (in `oe-patterns-prod`), update CDK `AMI_ID`
-4. **Integration test** — run taskcat
+3. **AMI build (dev)** — build dev AMI for testing, update CDK `AMI_ID`
+4. **Integration test** — `make deploy` → playwright → manual verify → `make destroy` → `make test-main` (taskcat)
 5. **Pre-release** — release branch, CHANGELOG (do NOT merge/tag yet)
-6. **Marketplace submission** — submit new version via AWS Marketplace Catalog API; wait for SUCCEEDED
-7. **Finalize release** — merge release branch, tag, push
+6. **Marketplace submission** — build prod AMI, submit new version via AWS Marketplace Catalog API; wait for SUCCEEDED
+7. **Finalize release** — merge release branch, tag, push; restore dev AMI on `develop`
+8. **Terraform module bump** — update companion `terraform-aws-marketplace-oe-patterns-<app>` module with new template URL; `terraform test`; release
+9. **Marketing materials** — generate blog post, LinkedIn post, YouTube script drafts
 
-**Why Phase 7 is separate:** If Marketplace submission fails after you've already merged the release branch and pushed the tag, you have to back out published commits. Keep the release branch open through Phase 6.
+**Why Phase 7 is separate from Phase 6:** If Marketplace submission fails after you've already merged the release branch and pushed the tag, you have to back out published commits. Keep the release branch open through Phase 6.
+
+**Why Phases 8 and 9 are separate from Phase 7:** The terraform module test (Phase 8) can surface test-environment issues (expired cert, snapshot quota) that would stall the main pattern release if bundled. The marketing step (Phase 9) is authored content that should always follow confirmed-live shipping.
 
 ## Phase 0: Read pattern-specific notes
 
@@ -607,23 +611,88 @@ Alternative: if the dev AMI is stale (older than the prod AMI built in Phase 6 p
 
 (Multi-region `make ami-ec2-copy` is no longer needed — taskcat runs in us-east-1 and the Marketplace Catalog API handles multi-region replication of the prod AMI automatically.)
 
-### 7.3 Update the companion Terraform module (if one exists)
+## Phase 8: Upgrade the companion Terraform module
 
-Pattern repos with a companion `terraform-aws-marketplace-oe-patterns-<app>` module need the new AWS-hosted template URL:
+**Success criterion:** `terraform-aws-marketplace-oe-patterns-<app>` module points at the new Marketplace-hosted template URL, passes `terraform test` against the `oe-patterns-test` account, and is tagged with the same version as the pattern release.
+
+Pattern repos that have a companion `terraform-aws-marketplace-oe-patterns-<app>` module (Mastodon, Discourse, and others) wrap the Marketplace CloudFormation template in a Terraform module so users who prefer Terraform can deploy the pattern. The module must be bumped after each pattern release so its `template_url` resolves to the new version's AWS-hosted template.
+
+### 8.1 Get the new AWS-hosted template URL
+
+After Phase 6 succeeds, the Marketplace Catalog API exposes the template URL at the new version:
 
 ```bash
-# Get the new AWS-hosted template URL
 AWS_PROFILE=oe-patterns-prod aws marketplace-catalog describe-entity \
   --region us-east-1 --catalog AWSMarketplace \
   --entity-id <product-id> --query "Details" --output text \
   | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); v=[x for x in d['Versions'] if x['VersionTitle']=='<new-version>'][0]; s=[x for x in v['Sources'] if x['Type']=='CloudFormationTemplate'][0]; print(s['Template'])"
 ```
 
-Then in the terraform module repo:
-1. Update `main.tf` `template_url =` to the new URL
-2. Update `CHANGELOG.md`
-3. Run `terraform fmt -check`, `terraform validate`, and `terraform test` (uses `oe-patterns-test` profile)
-4. Follow the same git-flow release as the pattern repo
+The URL looks like `https://awsmp-cft-211125678794-1707910187780.s3.us-east-1.amazonaws.com/<uuid>/<uuid>/template.yaml`. Verify it returns HTTP 200 (`curl -sI <url>`).
+
+### 8.2 Update the module
+
+In the terraform module repo:
+
+1. Edit `main.tf` — swap `template_url =` to the new URL.
+2. Edit `CHANGELOG.md` — add an entry for the new version (usually matches the pattern version).
+
+### 8.3 Validate and test
+
+```bash
+cd /path/to/terraform-aws-marketplace-oe-patterns-<app>
+AWS_PROFILE=oe-patterns-test terraform init
+AWS_PROFILE=oe-patterns-test terraform fmt -check
+AWS_PROFILE=oe-patterns-test terraform validate
+AWS_PROFILE=oe-patterns-test terraform test -verbose
+```
+
+`terraform test` actually deploys the stack to the `oe-patterns-test` account (~20-40 min). See the troubleshooting section for common test-account issues (expired cert, RDS snapshot quota, stuck CF stacks).
+
+### 8.4 Release the module
+
+Follow the same git-flow as the pattern repo:
+
+```bash
+git flow release start <new-version>
+git commit -am "<new-version>"
+git flow release finish <new-version>
+git push origin main develop <new-version>
+```
+
+## Phase 9: Generate marketing materials
+
+**Success criterion:** Drafts of a blog post, LinkedIn post, and YouTube script are written to `dist/content/` for human review, polishing, and publishing.
+
+This phase automates the "now announce it" step after a pattern ships. Inputs are the `CHANGELOG.md` entry, `marketplace_config.yaml` long description, and upstream release notes. The generator (invoked via `make release-content TEMPLATE_VERSION=<v>`) calls an LLM to produce three artifacts:
+
+| File | Purpose | Length |
+|---|---|---|
+| `dist/content/blog-post.md` | Draft blog post for fossoncloud.com, with frontmatter | 800-1200 words |
+| `dist/content/linkedin-post.md` | LinkedIn post linking to the blog | 150-300 words |
+| `dist/content/youtube-script.md` | 3-5 min video script + shot list (cold open, provisioning demo, feature walkthrough, CTA) | ~500 words + annotations |
+
+### 9.1 Run the generator
+
+```bash
+AWS_PROFILE=oe-patterns-dev make release-content TEMPLATE_VERSION=<new-version>
+```
+
+The generator:
+- Reads `CHANGELOG.md` for the current version's release notes
+- Reads `marketplace_config.yaml` for product title, long description, architecture
+- Fetches upstream release notes (via `gh release view` for GitHub-released projects, or Docker Hub/Meta/release-page scrape for others — per upstream convention)
+- Calls an LLM to summarize feature changes and draft each artifact
+
+### 9.2 Review and polish
+
+Treat generated files as drafts. Edit for voice, accuracy, and brand fit. Add screenshots as needed for the blog post. The YouTube script's shot list tells you what to click during the provisioning demo — rehearse it once before recording.
+
+### 9.3 Publish
+
+- **Blog:** commit the polished `.md` to the fossoncloud.com repo.
+- **LinkedIn:** post manually from the FOSSonCloud company page.
+- **YouTube:** record the video, upload, and link to it from the blog post.
 
 ## Troubleshooting
 

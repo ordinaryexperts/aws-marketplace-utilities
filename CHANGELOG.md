@@ -1,5 +1,6 @@
 # Unreleased
 
+- UPGRADE.md: restructured to 9 phases — split out "Phase 8: Upgrade the companion Terraform module" and "Phase 9: Generate marketing materials" as their own phases. Previously Phase 8 was a subsection (7.3) of Finalize release; marketing generation wasn't in the doc.
 - UPGRADE.md: added Phase 2.3 note about `--break-system-packages` for pip3 install (Dockerfile must include this when bumping from devenv `<2.7.0` to `>=2.7.0` — Ubuntu 24.04 / PEP 668).
 - UPGRADE.md: added Phase 2.4 recommendation to bump `aws-cdk-lib` and `oe-patterns-cdk-common` together, with a warning about Aurora 15.4→15.13 and Redis 6.2→7.0 migrations that come with `cdk-common 4.3.0+`.
 - UPGRADE.md: added Phase 2.3.1 covering the versioned AMI parameter suffix convention (`NEXT_RELEASE_PREFIX`, `ami_id_param_name_suffix` on Asg, Makefile `AsgAmiIdvXXX` deploy param). Required for all patterns going forward; documents both "introduce new" and "bump existing" flows.
