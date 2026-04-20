@@ -1,15 +1,8 @@
 # Unreleased
 
-- Updated `UPGRADE.md` with field-tested additions from the 2.4.0 Mastodon release:
-  - Prerequisites: explicit profile roles (dev/prod/test), devenv `:2.8.2` pin, `.gitignore` additions
-  - Phase 3.1: AMI build runs in `oe-patterns-prod` (not dev)
-  - Phase 5→7 restructure: don't merge/tag until Marketplace reports `SUCCEEDED`
-  - Phase 6 Prerequisites: full `delivery_option:` block (required fields), role ARN guidance (`AWSMarketplaceAMIScanning`), example config
-  - Phase 6 split across profiles (dev for publish, prod for validate/submit/status)
-  - New Phase 7 covering final merge/tag, dev AMI for taskcat, Terraform module wrapper update
-  - Troubleshooting: `IMAGE_ACCESS_EXCEPTION`, missing `delivery_option` fields, test account debt (expired cert, RDS snapshot quota, stuck CF stacks)
-  - "Known upstream issues" section capturing bugs in `publish-template.sh`, `publish-diagram.sh`, `AwsMarketplaceAmiIngestion` role, and `marketplace.py validate`. Items 1, 3, 5 are now fixed (devenv `:2.8.2` / `:2.8.3`).
-  - Pin recommendation updated to devenv `:2.8.3` (picks up both the validate logo fix and the config-driven publish scripts).
+# 1.9.0
+
+- Updated UPGRADE.md
 
 # 1.8.0
 
