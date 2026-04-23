@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.9.4
+
+- scripts/marketplace_rebrand.py: new tool for FOSSonCloud rebrand — submits UpdateInformation + UpdateLogo change sets to the AWS Marketplace Catalog API driven by a `product_info:` block in the pattern repo's marketplace_config.yaml. Supports `--dry-run` for previewing change sets without AWS calls. Accompanying lib at scripts/marketplace_rebrand_lib.py with pytest unit tests at scripts/tests/test_marketplace_rebrand_lib.py.
+
 # 1.9.3
 
 - UPGRADE.md: added Phase 0 "Brand alignment check" — first-upgrade checklist to confirm pattern repo + live AWS Marketplace product use the "`<App> on AWS by FOSSonCloud`" style consistently.
