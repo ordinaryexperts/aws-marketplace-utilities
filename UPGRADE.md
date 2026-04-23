@@ -50,6 +50,23 @@ Examples:
 - Discourse: `discourse/base` image must be pinned in `packer/ubuntu_2404_appinstall.sh` in **both** the `git checkout <sha>` of `discourse_docker` AND the `docker pull discourse/base:<version>` — both must reference the same image version. Needs 40GB root volume.
 - Mastodon: uses `setup.py` + `-e .` in `requirements.txt` (not all patterns do).
 
+### Brand alignment check (one-time per pattern)
+
+The FOSSonCloud brand style for pattern products is **`<App Name> on AWS by FOSSonCloud`**. On the first upgrade of a pattern that hasn't been rebranded yet, confirm these match:
+
+| Location | Target value |
+|---|---|
+| `README.md` heading | `<App Name> on AWS by FOSSonCloud` |
+| `README.md` tagline | "A FOSSonCloud AWS Marketplace Product" |
+| `marketplace_config.yaml` `delivery_option.short_description` | starts with "Deploy a production-ready `<App>`..." |
+| `marketplace_config.yaml` `delivery_option.long_description` | opens with "`<App>` on AWS by FOSSonCloud..." |
+| AWS Marketplace Management Portal product title | `<App Name> on AWS by FOSSonCloud` |
+| `diagram.png` title | "`<App Name>` on AWS by FOSSonCloud — Architecture" |
+
+If the live AWS Marketplace product title still uses the older "Ordinary Experts `<App>` Pattern" wording, update it via the Catalog API `UpdateInformation` change type (see Troubleshooting > "Updating product metadata" below) as a follow-up after the version submission completes. Running both changesets simultaneously is safe but a little noisy in the portal — typically one after the other is cleaner.
+
+`plf_config.yaml` is deprecated (replaced by `marketplace_config.yaml`) but may still carry old branding in existing pattern repos. Low priority to update; flag for removal in a cleanup pass.
+
 ## Phase 1: Research
 
 **Success criterion:** You have identified the target upstream version and reviewed its dependency diff against the currently-deployed version. No hard blockers (e.g., major runtime version bump requiring packer script changes) are unaddressed.
@@ -784,6 +801,39 @@ This is **test-environment debt**, not a 2.4.0 regression — the `oe-patterns-t
 - **Stuck `DELETE_FAILED` CloudFormation stacks.** After clearing the snapshot quota, retry `aws cloudformation delete-stack --stack-name <name>` — stacks usually drain cleanly once the DbCluster can create its final snapshot.
 
 **Prevention:** consider a scheduled Lambda in `oe-patterns-test` that (a) deletes manual RDS cluster snapshots older than 30 days, (b) force-deletes `DELETE_FAILED` CloudFormation stacks older than 7 days, (c) alerts on ACM certs expiring in under 30 days.
+
+### Updating product metadata (title, descriptions, highlights)
+
+The AWS Marketplace product's title/short/long description are updated via the Catalog API `UpdateInformation` change type on the `AmiProduct@1.0` entity. Useful when rebranding (e.g., aligning an older "Ordinary Experts X Pattern" product to the "X on AWS by FOSSonCloud" style).
+
+Schema quirks that aren't obvious from AWS docs:
+
+- **Field names are PascalCase**, not camelCase (e.g., `ProductTitle`, not `productTitle`).
+- **`Manufacturer` is NOT an `UpdateInformation` field** — it lives on the entity but is only settable at creation. Including it causes `ValidationException`.
+- **Other fields live on separate change types**: `UpdateCategories` for categories, `UpdateSearchKeywords` for keywords, `UpdateLogo` for logo, `UpdateSupportInformation` for support description.
+
+Minimum `UpdateInformation` Details for a rebrand (preserves highlights, sku, videoUrls):
+
+```json
+{
+  "ProductTitle": "X on AWS by FOSSonCloud",
+  "ShortDescription": "X on AWS by FOSSonCloud is a custom AMI + ...",
+  "LongDescription": "X on AWS by FOSSonCloud is an open-source ...",
+  "Sku": "OE_PATTERNS_X",
+  "Highlights": ["...", "...", "..."]
+}
+```
+
+Submit with:
+
+```bash
+AWS_PROFILE=oe-patterns-prod aws marketplace-catalog start-change-set \
+  --region us-east-1 --catalog AWSMarketplace \
+  --change-set-name "rebrand-X-fossoncloud" \
+  --change-set '[{"ChangeType":"UpdateInformation","Entity":{"Type":"AmiProduct@1.0","Identifier":"<product-id>"},"Details":"<json-string-of-details>"}]'
+```
+
+Metadata changesets typically reach `SUCCEEDED` in under a minute (much faster than `AddDeliveryOptions`/version submissions).
 
 ### Reference: existing skills
 
