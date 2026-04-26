@@ -1,10 +1,6 @@
-import base64
-from pathlib import Path
-
 import pytest
 from scripts.marketplace_rebrand_lib import (
     build_update_information_change,
-    build_update_logo_change,
     load_product_info,
 )
 
@@ -65,16 +61,22 @@ def test_update_information_change_shape():
     assert details["Resources"] == [{"Type": "Text", "Text": "Docs", "Url": "https://example.com"}]
     assert details["SupportDescription"] == "Email support"
     assert details["Sku"] == "OE_PATTERNS_ZULIP"
+    assert "LogoUrl" not in details
 
 
-def test_update_logo_change_base64_encodes(tmp_path: Path):
-    logo = tmp_path / "logo.png"
-    logo.write_bytes(b"\x89PNG\r\n\x1a\nFAKE")
-    change = build_update_logo_change("prod-id-123", logo)
-    assert change["ChangeType"] == "UpdateLogo"
-    assert change["Entity"] == {"Identifier": "prod-id-123", "Type": "AmiProduct@1.0"}
-    assert "LogoUrl" in change["DetailsDocument"]
-    logo_url = change["DetailsDocument"]["LogoUrl"]
-    assert logo_url.startswith("data:image/png;base64,")
-    encoded = logo_url.split(",", 1)[1]
-    assert base64.b64decode(encoded) == b"\x89PNG\r\n\x1a\nFAKE"
+def test_update_information_change_includes_logo_url_when_provided():
+    product_info = {
+        "title": "Zulip on AWS by FOSSonCloud",
+        "short_description": "Short",
+        "long_description": "Long",
+        "highlights": ["a", "b"],
+        "categories": ["Application Stacks"],
+        "search_keywords": ["zulip"],
+        "resources": [{"name": "Docs", "url": "https://example.com"}],
+        "support_description": "Email support",
+        "sku": "OE_PATTERNS_ZULIP",
+    }
+    change = build_update_information_change(
+        "prod-id-123", product_info, logo_url="https://example.com/logo.png"
+    )
+    assert change["DetailsDocument"]["LogoUrl"] == "https://example.com/logo.png"

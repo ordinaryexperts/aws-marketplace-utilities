@@ -1,8 +1,6 @@
 """Pure helpers for marketplace_rebrand — no AWS SDK calls, no I/O."""
 from __future__ import annotations
 
-import base64
-from pathlib import Path
 from typing import Any
 
 
@@ -33,34 +31,29 @@ def load_product_info(config: dict[str, Any]) -> dict[str, Any]:
     return info
 
 
-def build_update_information_change(product_id: str, info: dict[str, Any]) -> dict[str, Any]:
+def build_update_information_change(
+    product_id: str,
+    info: dict[str, Any],
+    logo_url: str | None = None,
+) -> dict[str, Any]:
+    details: dict[str, Any] = {
+        "ProductTitle": info["title"],
+        "ShortDescription": info["short_description"],
+        "LongDescription": info["long_description"],
+        "Highlights": info["highlights"],
+        "Categories": info["categories"],
+        "SearchKeywords": info["search_keywords"],
+        "Resources": [
+            {"Type": "Text", "Text": r["name"], "Url": r["url"]}
+            for r in info["resources"]
+        ],
+        "SupportDescription": info["support_description"],
+        "Sku": info["sku"],
+    }
+    if logo_url is not None:
+        details["LogoUrl"] = logo_url
     return {
         "ChangeType": "UpdateInformation",
         "Entity": {"Identifier": product_id, "Type": "AmiProduct@1.0"},
-        "DetailsDocument": {
-            "ProductTitle": info["title"],
-            "ShortDescription": info["short_description"],
-            "LongDescription": info["long_description"],
-            "Highlights": info["highlights"],
-            "Categories": info["categories"],
-            "SearchKeywords": info["search_keywords"],
-            "Resources": [
-                {"Type": "Text", "Text": r["name"], "Url": r["url"]}
-                for r in info["resources"]
-            ],
-            "SupportDescription": info["support_description"],
-            "Sku": info["sku"],
-        },
-    }
-
-
-def build_update_logo_change(product_id: str, logo_path: Path) -> dict[str, Any]:
-    raw = Path(logo_path).read_bytes()
-    encoded = base64.b64encode(raw).decode("ascii")
-    return {
-        "ChangeType": "UpdateLogo",
-        "Entity": {"Identifier": product_id, "Type": "AmiProduct@1.0"},
-        "DetailsDocument": {
-            "LogoUrl": f"data:image/png;base64,{encoded}",
-        },
+        "DetailsDocument": details,
     }

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Submit a FOSSonCloud rebrand change set to the AWS Marketplace Catalog API.
 
-Reads marketplace_config.yaml, validates product_info, builds UpdateInformation +
-UpdateLogo changes, and submits them as a single change set. --dry-run prints the
-change set JSON without calling AWS.
+Reads marketplace_config.yaml, validates product_info, builds an UpdateInformation
+change (including LogoUrl), and submits it as a single change set. --dry-run prints
+the change set JSON without calling AWS.
 """
 from __future__ import annotations
 
@@ -16,7 +16,6 @@ import yaml
 
 from marketplace_rebrand_lib import (
     build_update_information_change,
-    build_update_logo_change,
     load_product_info,
 )
 
@@ -27,11 +26,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--config-path",
         default="marketplace_config.yaml",
         help="Path to marketplace_config.yaml (default: ./marketplace_config.yaml)",
-    )
-    p.add_argument(
-        "--logo-path",
-        default="logo.png",
-        help="Path to logo.png (default: ./logo.png)",
     )
     p.add_argument(
         "--dry-run",
@@ -58,32 +52,22 @@ def main(argv: list[str] | None = None) -> int:
     if not product_id:
         print("ERROR: config missing product_id", file=sys.stderr)
         return 2
+    logo_url = config.get("logo_url")
+    if not logo_url:
+        print("ERROR: config missing logo_url", file=sys.stderr)
+        return 2
     try:
         info = load_product_info(config)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 
-    logo_path = Path(args.logo_path)
-    if not logo_path.is_file():
-        print(f"ERROR: logo file not found: {logo_path}", file=sys.stderr)
-        return 2
-
     change_set = [
-        build_update_information_change(product_id, info),
-        build_update_logo_change(product_id, logo_path),
+        build_update_information_change(product_id, info, logo_url=logo_url),
     ]
 
     if args.dry_run:
-        # Don't leak the base64 logo blob into dry-run output; summarize instead.
-        preview = [dict(c) for c in change_set]
-        for c in preview:
-            if c["ChangeType"] == "UpdateLogo":
-                details = dict(c["DetailsDocument"])
-                url = details.get("LogoUrl", "")
-                details["LogoUrl"] = f"{url[:40]}...[{len(url)} chars total]"
-                c["DetailsDocument"] = details
-        print(json.dumps(preview, indent=2))
+        print(json.dumps(change_set, indent=2))
         return 0
 
     import boto3  # imported lazily so --dry-run works without AWS creds
