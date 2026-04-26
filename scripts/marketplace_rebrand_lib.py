@@ -44,7 +44,7 @@ def build_update_information_change(
         "Categories": info["categories"],
         "SearchKeywords": info["search_keywords"],
         "AdditionalResources": [
-            {"Text": [r["name"], r["url"]]}
+            {"Text": r["name"], "Url": r["url"]}
             for r in info["resources"]
         ],
         "SupportDescription": info["support_description"],
