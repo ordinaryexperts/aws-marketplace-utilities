@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.10.0
+
+- scripts/marketplace_reprice.py: new tool that flattens an Offer's UsageBasedPricingTerm to a single per-hour price (per-pattern config), then submits an UpdatePricingTerms change set against the Offer@1.0 entity. Companion to marketplace_rebrand.py — same fetch-via-Makefile pattern. Reads `flat_price` (and optional `offer_id`) from marketplace_config.yaml. `--dry-run` prints the change-set JSON; stderr reports before/after price range and direction (raises/lowers/spans/no-op) so an unintended price increase is visible at a glance. Auto-discovers offers via list-entities by ProductId; honors `offer_id` config or `--offer-id` flag for products with multiple offers. Accompanying lib at scripts/marketplace_reprice_lib.py with pytest unit tests at scripts/tests/test_marketplace_reprice_lib.py.
+
 # 1.9.5
 
 - scripts/marketplace_rebrand.py: fix change-type misuse — the AWS Marketplace Catalog API does not support `ChangeType=UpdateLogo` for `AmiProduct@1.0`. LogoUrl is now passed as a field inside `UpdateInformation.DetailsDocument`. The script now reads `logo_url` (a public HTTPS URL) from marketplace_config.yaml instead of a local logo file path.
