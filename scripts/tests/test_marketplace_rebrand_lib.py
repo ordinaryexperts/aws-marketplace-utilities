@@ -58,7 +58,7 @@ def test_update_information_change_shape():
     assert details["Highlights"] == ["a", "b"]
     assert details["Categories"] == ["Application Stacks"]
     assert details["SearchKeywords"] == ["zulip"]
-    assert details["Resources"] == [{"Type": "Text", "Text": "Docs", "Url": "https://example.com"}]
+    assert details["AdditionalResources"] == [{"Text": ["Docs", "https://example.com"]}]
     assert details["SupportDescription"] == "Email support"
     assert details["Sku"] == "OE_PATTERNS_ZULIP"
     assert "LogoUrl" not in details
