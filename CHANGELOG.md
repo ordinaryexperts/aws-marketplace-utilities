@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.9.5
+
+- scripts/marketplace_rebrand.py: fix change-type misuse — the AWS Marketplace Catalog API does not support `ChangeType=UpdateLogo` for `AmiProduct@1.0`. LogoUrl is now passed as a field inside `UpdateInformation.DetailsDocument`. The script now reads `logo_url` (a public HTTPS URL) from marketplace_config.yaml instead of a local logo file path.
+
 # 1.9.4
 
 - scripts/marketplace_rebrand.py: new tool for FOSSonCloud rebrand — submits UpdateInformation + UpdateLogo change sets to the AWS Marketplace Catalog API driven by a `product_info:` block in the pattern repo's marketplace_config.yaml. Supports `--dry-run` for previewing change sets without AWS calls. Accompanying lib at scripts/marketplace_rebrand_lib.py with pytest unit tests at scripts/tests/test_marketplace_rebrand_lib.py.
