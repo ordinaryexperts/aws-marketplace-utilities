@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.10.3
+
+- packer_provisioning_scripts/ubuntu_2204_2404_preinstall.sh: third and (hopefully) final piece of the `--install-efs-utils` chain — `aws-lc-fips-sys`'s CMake build invokes Go for the FIPS-validation toolchain (`aws-lc/cmake/go.cmake`), so add `golang-go` to the apt install line alongside `cmake`. Note: pattern repos that consume this also need to ensure their packer appinstall script has `set -eux` as an explicit command (not just in the shebang), since packer's `execute_command` typically runs `bash <path>` which treats the shebang as a comment and silently ignores errors from this preinstall script.
+
 # 1.10.2
 
 - packer_provisioning_scripts/ubuntu_2204_2404_preinstall.sh: complete the `--install-efs-utils` fix from 1.10.1. With rustup's modern cargo now in PATH, `cargo build` got further but failed on a missing `cmake` (efs-utils' transitive dep `aws-lc-fips-sys` builds C bindings via CMake). Add `cmake` to the apt install line. Also add an explicit `ls .../amazon-efs-utils*.deb` check after `build-deb.sh` and `exit 1` if the .deb wasn't produced — `build-deb.sh` has historically swallowed cargo failures, letting the AMI build continue and ship without `mount.efs`. Future missing-deps will now fail loudly at the right step instead of silently breaking EFS mount at instance boot.
