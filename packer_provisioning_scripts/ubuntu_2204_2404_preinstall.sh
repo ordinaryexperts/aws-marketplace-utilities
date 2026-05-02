@@ -88,7 +88,8 @@ fi
 
 # install efs mount helper - requires git
 if [ "$INSTALL_EFS_UTILS" = true ]; then
-    apt-get -y install git binutils pkg-config libssl-dev
+    # cmake is needed by efs-utils' transitive dep aws-lc-fips-sys (CMake-built C bindings).
+    apt-get -y install cmake git binutils pkg-config libssl-dev
     # Install Rust via rustup. Ubuntu 22.04's apt-shipped cargo is too old to
     # parse efs-utils' Cargo.lock (lockfile version 4 requires recent cargo).
     # Don't apt-install rustc/cargo — they'd shadow rustup's modern toolchain.
@@ -101,6 +102,10 @@ if [ "$INSTALL_EFS_UTILS" = true ]; then
     git clone https://github.com/aws/efs-utils /tmp/efs-utils
     cd /tmp/efs-utils
     ./build-deb.sh
+    # build-deb.sh doesn't propagate cargo's exit code reliably, so the script
+    # has historically continued past failures and shipped AMIs without
+    # mount.efs. Fail loudly here if the .deb wasn't produced.
+    ls /tmp/efs-utils/build/amazon-efs-utils*.deb >/dev/null 2>&1 || { echo "ERROR: amazon-efs-utils .deb not produced by build-deb.sh"; exit 1; }
     apt-get install -y ./build/amazon-efs-utils*deb
     cd -
 fi
