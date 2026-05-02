@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.10.2
+
+- packer_provisioning_scripts/ubuntu_2204_2404_preinstall.sh: complete the `--install-efs-utils` fix from 1.10.1. With rustup's modern cargo now in PATH, `cargo build` got further but failed on a missing `cmake` (efs-utils' transitive dep `aws-lc-fips-sys` builds C bindings via CMake). Add `cmake` to the apt install line. Also add an explicit `ls .../amazon-efs-utils*.deb` check after `build-deb.sh` and `exit 1` if the .deb wasn't produced — `build-deb.sh` has historically swallowed cargo failures, letting the AMI build continue and ship without `mount.efs`. Future missing-deps will now fail loudly at the right step instead of silently breaking EFS mount at instance boot.
+
 # 1.10.1
 
 - packer_provisioning_scripts/ubuntu_2204_2404_preinstall.sh: fix `--install-efs-utils` failure on current upstream `aws/efs-utils`. The script previously installed rustup but then `source /root/.bashrc` (wrong file under `sudo -E` where `$HOME=/home/ubuntu`) and apt-installed `rustc cargo`, which shadowed rustup's modern toolchain. apt's cargo on Ubuntu 22.04 cannot parse efs-utils' Cargo.lock (lockfile version 4 requires recent cargo), so `build-deb.sh` failed silently and `amazon-efs-utils*deb` was never produced. Patterns using `--install-efs-utils` (WordPress, Drupal, others) shipped AMIs without `mount.efs`, breaking EFS mount at instance boot. Fix: drop the `rustc cargo` apt install and the `source /root/.bashrc`, and explicitly add `$HOME/.cargo/bin` and `/root/.cargo/bin` to `$PATH` so rustup's cargo wins regardless of which directory it landed in.
