@@ -1,5 +1,9 @@
 # Unreleased
 
+# 1.10.1
+
+- packer_provisioning_scripts/ubuntu_2204_2404_preinstall.sh: fix `--install-efs-utils` failure on current upstream `aws/efs-utils`. The script previously installed rustup but then `source /root/.bashrc` (wrong file under `sudo -E` where `$HOME=/home/ubuntu`) and apt-installed `rustc cargo`, which shadowed rustup's modern toolchain. apt's cargo on Ubuntu 22.04 cannot parse efs-utils' Cargo.lock (lockfile version 4 requires recent cargo), so `build-deb.sh` failed silently and `amazon-efs-utils*deb` was never produced. Patterns using `--install-efs-utils` (WordPress, Drupal, others) shipped AMIs without `mount.efs`, breaking EFS mount at instance boot. Fix: drop the `rustc cargo` apt install and the `source /root/.bashrc`, and explicitly add `$HOME/.cargo/bin` and `/root/.cargo/bin` to `$PATH` so rustup's cargo wins regardless of which directory it landed in.
+
 # 1.10.0
 
 - scripts/marketplace_reprice.py: new tool that flattens an Offer's UsageBasedPricingTerm to a single per-hour price (per-pattern config), then submits an UpdatePricingTerms change set against the Offer@1.0 entity. Companion to marketplace_rebrand.py — same fetch-via-Makefile pattern. Reads `flat_price` (and optional `offer_id`) from marketplace_config.yaml. `--dry-run` prints the change-set JSON; stderr reports before/after price range and direction (raises/lowers/spans/no-op) so an unintended price increase is visible at a glance. Auto-discovers offers via list-entities by ProductId; honors `offer_id` config or `--offer-id` flag for products with multiple offers. Accompanying lib at scripts/marketplace_reprice_lib.py with pytest unit tests at scripts/tests/test_marketplace_reprice_lib.py.

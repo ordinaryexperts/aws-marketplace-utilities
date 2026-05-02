@@ -88,9 +88,16 @@ fi
 
 # install efs mount helper - requires git
 if [ "$INSTALL_EFS_UTILS" = true ]; then
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -q -y
-    source /root/.bashrc
-    apt-get -y install git binutils rustc cargo pkg-config libssl-dev
+    apt-get -y install git binutils pkg-config libssl-dev
+    # Install Rust via rustup. Ubuntu 22.04's apt-shipped cargo is too old to
+    # parse efs-utils' Cargo.lock (lockfile version 4 requires recent cargo).
+    # Don't apt-install rustc/cargo — they'd shadow rustup's modern toolchain.
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -q -y --default-toolchain stable
+    # Packer runs this script via `sudo -E`, so $HOME stays /home/ubuntu while
+    # euid is root. rustup installs to $HOME/.cargo; sourcing /root/.bashrc as
+    # this script previously did was the wrong file. Cover both possible
+    # install dirs explicitly.
+    export PATH="$HOME/.cargo/bin:/root/.cargo/bin:$PATH"
     git clone https://github.com/aws/efs-utils /tmp/efs-utils
     cd /tmp/efs-utils
     ./build-deb.sh
