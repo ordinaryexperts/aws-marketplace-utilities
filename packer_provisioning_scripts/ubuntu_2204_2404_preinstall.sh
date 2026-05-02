@@ -88,8 +88,10 @@ fi
 
 # install efs mount helper - requires git
 if [ "$INSTALL_EFS_UTILS" = true ]; then
-    # cmake is needed by efs-utils' transitive dep aws-lc-fips-sys (CMake-built C bindings).
-    apt-get -y install cmake git binutils pkg-config libssl-dev
+    # cmake + golang-go are needed to build efs-utils' transitive dep
+    # aws-lc-fips-sys: it builds the AWS LibCrypto FIPS module via CMake,
+    # which in turn invokes Go for FIPS-validation tooling.
+    apt-get -y install cmake git binutils golang-go pkg-config libssl-dev
     # Install Rust via rustup. Ubuntu 22.04's apt-shipped cargo is too old to
     # parse efs-utils' Cargo.lock (lockfile version 4 requires recent cargo).
     # Don't apt-install rustc/cargo — they'd shadow rustup's modern toolchain.
