@@ -36,11 +36,12 @@ Do NOT use this doc for:
 6. **Marketplace submission** — build prod AMI, submit new version via AWS Marketplace Catalog API; wait for SUCCEEDED
 7. **Finalize release** — merge release branch, tag, push; restore dev AMI on `develop`
 8. **Terraform module bump** — update companion `terraform-aws-marketplace-oe-patterns-<app>` module with new template URL; `terraform test`; release
-9. **Marketing materials** — generate blog post, LinkedIn post, YouTube script drafts
+9. **Refresh patterns dashboard** — update `ordinaryexperts/patterns-dashboard` so cross-pattern view picks up new versions, FOSS drift, and current subscriber/usage counts
+10. **Marketing materials** — generate blog post, LinkedIn post, YouTube script drafts
 
 **Why Phase 7 is separate from Phase 6:** If Marketplace submission fails after you've already merged the release branch and pushed the tag, you have to back out published commits. Keep the release branch open through Phase 6.
 
-**Why Phases 8 and 9 are separate from Phase 7:** The terraform module test (Phase 8) can surface test-environment issues (expired cert, snapshot quota) that would stall the main pattern release if bundled. The marketing step (Phase 9) is authored content that should always follow confirmed-live shipping.
+**Why Phases 8, 9, and 10 are separate from Phase 7:** The terraform module test (Phase 8) can surface test-environment issues (expired cert, snapshot quota) that would stall the main pattern release if bundled. The dashboard refresh (Phase 9) and marketing step (Phase 10) are post-shipping housekeeping that should always follow confirmed-live shipping.
 
 ## Phase 0: Read pattern-specific notes
 
@@ -677,7 +678,51 @@ git flow release finish <new-version>
 git push origin main develop <new-version>
 ```
 
-## Phase 9: Generate marketing materials
+## Phase 9: Refresh the patterns dashboard
+
+**Success criterion:** `ordinaryexperts/patterns-dashboard` reflects the new pattern version, the FOSS version it ships, the new TF module version, and current subscriber/usage counts.
+
+The dashboard at `ordinaryexperts/patterns-dashboard` is the cross-pattern source of truth (replaces the old Google Sheet). Most fields are auto-derived from the pattern repos and AWS Marketplace data feeds, but a few patterns require a manual edit per release.
+
+### 9.1 Manual edits (only some patterns)
+
+Open `patterns.yml` in the dashboard repo. For the pattern you just shipped, update any manual fields that changed:
+
+- **`mp_foss_version_override`** — set this if the pattern's packer script doesn't pin the FOSS version as a `*_VERSION=` env var (Discourse, Drupal, Consul Democracy fall into this bucket). Set it to the FOSS version that ships in the new MP release. If your pattern uses `mp_foss_version_var` (Mastodon, Pixelfed, Jitsi, Zulip, Bluesky PDS, WordPress, PeerTube, Open WebUI), the script reads it from the packer script automatically — no manual edit needed.
+- **`status`** — flip `legacy → active` if a pattern coming back into active maintenance is being released; flip `active → legacy` if this is the final release.
+- **`notes`** — only if a release-relevant gotcha changed.
+
+Do NOT hand-edit auto-derived fields (`mp_version`, `mp_release_date`, `tf_module_version`, `active_subscribers`, `running_subscribers`, etc.) — they get clobbered on the next refresh.
+
+### 9.2 Run the refresh
+
+```bash
+cd /path/to/patterns-dashboard
+python3 scripts/refresh-patterns.py --aws
+```
+
+The script:
+- Re-reads each pattern's `CHANGELOG.md` for the latest `mp_version` and `mp_release_date` (uses the version's git tag date when CHANGELOG has no inline date).
+- Re-reads each `packer/ubuntu_*_appinstall.sh` for the FOSS version pin (`mp_foss_version_var`).
+- Queries upstream GitHub releases (or PyPI for Open WebUI) for `foss_latest_version` — falls back to highest semver-shaped tag for repos that don't publish Releases (WordPress, Drupal, Bluesky PDS).
+- Re-reads sibling `terraform-aws-marketplace-oe-patterns-<slug>/CHANGELOG.md` for `tf_module_version`.
+- Walks `s3://aws-marketplace-data-feeds-delivery-resources-oe-us-east-1/` (default profile `oe-patterns-prod`; override with `--aws-profile`) to count distinct ACTIVE agreements per `marketplace_product_id` (`active_subscribers`) and distinct agreements with usage in the last 30 days (`running_subscribers`).
+- Regenerates `PATTERNS.md` with a Health column (🔴/🟡/🟢/⚪) and the per-pattern detail sections.
+
+GitHub API rate limit: the script falls back to `gh auth token` if `GITHUB_TOKEN` isn't set, so no extra config needed when `gh` is logged in.
+
+### 9.3 Commit and push
+
+```bash
+git diff patterns.yml PATTERNS.md   # sanity check
+git add patterns.yml PATTERNS.md
+git commit -m "Refresh after <pattern> <new-version>"
+git push origin main
+```
+
+If something looks wrong (e.g. the script picked up a pre-release tag as `foss_latest_version`), fix the relevant manual field in `patterns.yml`, re-run, then commit.
+
+## Phase 10: Generate marketing materials
 
 **Success criterion:** Drafts of a blog post, LinkedIn post, and YouTube script are written to `dist/content/` for human review, polishing, and publishing.
 
