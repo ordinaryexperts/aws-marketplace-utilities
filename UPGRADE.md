@@ -20,6 +20,12 @@ Do NOT use this doc for:
   - `oe-patterns-prod` (account `879777583535`) — for the Marketplace-destined AMI build, `marketplace-validate`, `marketplace-submit`, `marketplace-status`.
   - `oe-patterns-test` (account `343218188409`) — for `terraform test` on the companion `terraform-aws-marketplace-oe-patterns-*` repos.
 - Docker + docker-compose available (all `make` targets run through docker-compose).
+- **AWS credentials exported as static env vars** before invoking any `make` target. `docker-compose.yml` forwards `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN` from the host environment into the container, but **does not forward `AWS_PROFILE`**. Just running `AWS_PROFILE=oe-patterns-dev make ami-ec2-build` fails inside the container with `no valid credential sources for found`. Use:
+  ```bash
+  eval "$(aws configure export-credentials --profile oe-patterns-dev --format env)"
+  export AWS_DEFAULT_REGION=us-east-1 AWS_REGION=us-east-1
+  ```
+  before any deploy/build/test target. Or chain them inline (`eval "$(aws ... --format env)" && make deploy`).
 - `gh` CLI authenticated: `gh auth status`.
 - Pattern repo checked out.
 - Working from a `feature/upgrade` branch (git-flow).
@@ -614,18 +620,29 @@ git branch -d release/<new-pattern-version>
 git push origin main develop <new-pattern-version>
 ```
 
-### 7.2 Restore the dev AMI reference for taskcat
+### 7.2 Rebuild the dev AMI with the final pattern version, then restore the reference
 
-CI runs weekly taskcat tests against the AMI referenced in `cdk/<app>/<app>_stack.py`. If the stack is left pointing at the **prod** AMI used for Marketplace submission, taskcat (running in `oe-patterns-dev`) cannot find it. Put the dev AMI ID from Phase 3 back into the stack on `develop`:
+CI runs weekly taskcat tests against the AMI referenced in `cdk/<app>/<app>_stack.py`. If the stack on `develop` is left pointing at the **prod** AMI from Phase 6, taskcat (running in `oe-patterns-dev`) cannot read it.
+
+The dev AMI built back in Phase 3 was named with the pattern version known at that time (e.g. `<app>-1.4.0-...`). If the release branch ended up using a different number (e.g. promoted to `2.0.0`), that label is now stale. Rebuild the dev AMI under `oe-patterns-dev` with the final `TEMPLATE_VERSION` so the on-disk name matches the shipped pattern version:
+
+```bash
+AWS_PROFILE=oe-patterns-dev make ami-ec2-build TEMPLATE_VERSION=<final-pattern-version>
+```
+
+Capture the new AMI ID, then put it into `cdk/<app>/<app>_stack.py` on `develop`:
 
 ```bash
 git checkout develop
-# Edit cdk/<app>/<app>_stack.py: AMI_ID = "<dev-ami-id-from-phase-3.2>"
-git commit -am "Restore dev AMI reference for post-<new-version> taskcat"
+# Edit cdk/<app>/<app>_stack.py:
+#   AMI_ID = "<new-dev-ami-id>"  # ordinary-experts-patterns-<app>-<final-version>-...
+git commit -am "Restore dev AMI reference for post-<final-version> taskcat"
 git push origin develop
 ```
 
-Alternative: if the dev AMI is stale (older than the prod AMI built in Phase 6 prerequisites), run `AWS_PROFILE=oe-patterns-dev make ami-ec2-build` again to refresh.
+The packer script and `SCRIPT_VERSION` haven't changed since Phase 3, so the new AMI is functionally identical to the prod AMI — only the embedded name string and the AWS account differ. The rebuild exists purely so the dev AMI's name reflects the version that actually shipped, which keeps `list_realms`/CloudWatch logs/incident triage readable.
+
+If you don't care about the cosmetic version-label mismatch, you can skip the rebuild and just point the stack at the original Phase 3 dev AMI ID — it works identically for taskcat purposes.
 
 (Multi-region `make ami-ec2-copy` is no longer needed — taskcat runs in us-east-1 and the Marketplace Catalog API handles multi-region replication of the prod AMI automatically.)
 
@@ -785,6 +802,53 @@ Treat generated files as drafts. Edit for voice, accuracy, and brand fit. Add sc
   - SSM session into the instance, check `/var/log/cloud-init-output.log` and `/var/log/syslog`
 - Secrets Manager access denied — IAM role change needed
 - Database connection — Aurora may not be ready; check timeouts in user_data.sh
+
+### Deploy fails with `AWS::EarlyValidation::ResourceExistenceCheck`
+
+**Symptoms:** `make deploy` exits before any per-resource events fire, with:
+
+```
+❌  <stack> failed: ToolkitError: Failed to create ChangeSet cdk-deploy-change-set on <stack>: FAILED, The following hook(s)/validation failed: [AWS::EarlyValidation::ResourceExistenceCheck]. To troubleshoot Early Validation errors, use the DescribeEvents API for detailed failure information.
+```
+
+`describe-stack-events` only shows the top-level `REVIEW_IN_PROGRESS` event — the per-resource cause is hidden behind the newer `DescribeEvents` API:
+
+```bash
+aws cloudformation describe-events \
+  --change-set-name cdk-deploy-change-set \
+  --stack-name <stack> \
+  --region us-east-1
+```
+
+The `OperationEvents` array contains a `VALIDATION_ERROR` entry naming the offending resource (e.g. `AWS::SES::EmailIdentity` already exists, ACM certificate not found, IAM role missing). Common cases:
+
+- **SES domain identity collision** — see entry below.
+- **ACM cert** — referenced cert was deleted or in the wrong region.
+- **IAM role** — Marketplace ingestion role got deleted or renamed.
+
+### SES domain identity collision in dev
+
+**Symptoms:** Early-validation reports:
+
+```
+Resource of type 'AWS::SES::EmailIdentity' with identifier '<root-domain>' already exists.
+```
+
+In the dev account (`oe-patterns-dev`), every pattern's dev stack uses the same root domain (e.g. `dev.patterns.ordinaryexperts.com`). `SesCreateDomainIdentity=true` works for the first stack, but every subsequent pattern in the account hits this. Two fixes:
+
+- **Per-deploy override** (cleanest — don't commit the change). Bypass the Makefile's hardcoded `SesCreateDomainIdentity=true` by calling the underlying `cdk deploy` directly with `SesCreateDomainIdentity=false`:
+  ```bash
+  docker compose run -w /code/cdk --rm devenv cdk deploy \
+    --require-approval never \
+    --parameters AlbCertificateArn=... \
+    --parameters AsgAmiIdv<NNN>=ami-... \
+    --parameters DnsHostname=... \
+    --parameters DnsRoute53HostedZoneName=... \
+    --parameters SesCreateDomainIdentity=false \
+    [other params from your Makefile]
+  ```
+  The stack reuses the existing identity owned by the sibling pattern.
+- **One-time identity ownership transfer** — only useful if you're cycling out the pattern that currently owns it. Otherwise stick with the override.
 
 ### Taskcat `DELETE_FAILED`
 
