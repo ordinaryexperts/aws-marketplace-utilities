@@ -447,6 +447,8 @@ The pattern version is independent from the upstream version — it is the versi
 
 Document the upgrade, breaking changes, and any manual migration steps users need to follow.
 
+> **ASCII-only release notes.** The Marketplace Catalog API rejects non-ASCII characters in `ReleaseNotes` with `INVALID_RELEASE_NOTES` (e.g. `Remove the following unsupported characters: [—].`). Editor smart-quote / em-dash autocorrect is the usual culprit. Before committing the CHANGELOG, scan the new entry: `grep -P "[^\x00-\x7F]" CHANGELOG.md`. Replace `—` with `--`, `'`/`'` with `'`, `"`/`"` with `"`. Catching this here saves a failed Phase 6.2 round-trip.
+
 ### 5.4 Commit to the release branch
 
 ```bash
@@ -562,6 +564,8 @@ AWS_PROFILE=oe-patterns-dev make publish-diagram TEMPLATE_VERSION=<new-pattern-v
 ```
 
 Same bucket, `<pattern>/<version>/diagram.png` path.
+
+> **Bump `architecture_diagram_url` in `marketplace_config.yaml` too.** The URL is currently pinned to a specific `<pattern>/<version>/diagram.png` path. `make publish-diagram` only uploads the file — it does not edit the config. If you forget, `marketplace-submit` quietly references the *previous* version's diagram (and Marketplace accepts it, so no error). Either bump the version in the URL each release, or replace the literal version with `{version}` if the submit script supports template substitution for that field.
 
 ### 6.2 Submit the new version
 
@@ -893,6 +897,23 @@ Error: delivery_option.short_description is required in marketplace_config.yaml
 Or similar for `long_description` or `architecture_diagram_url`.
 
 Fix: add the `delivery_option` block to `marketplace_config.yaml` (see example in Phase 6 Prerequisites). These three fields are mandatory for CloudFormation delivery options on AWS Marketplace.
+
+### Marketplace submit fails: `INVALID_RELEASE_NOTES`
+
+**Symptoms:** `make marketplace-status` reports:
+
+```
+Error: INVALID_RELEASE_NOTES
+Message: Remove the following unsupported characters: [—].
+```
+
+(or any other non-ASCII char in the brackets — em-dash, smart quotes, en-dash, etc.)
+
+The Marketplace Catalog API only accepts ASCII in `ReleaseNotes`. The submit script reads the release notes from the version's `CHANGELOG.md` entry verbatim, so any non-ASCII char that an editor's autocorrect snuck into the entry triggers this.
+
+Fix: scan the offending CHANGELOG entry (`grep -P "[^\x00-\x7F]" CHANGELOG.md`), replace the bad characters with ASCII equivalents (`—` → `--`, smart quotes → straight quotes), commit, and re-run `make marketplace-submit` from Phase 6.2. The failed changeset is in terminal state and does not block the new submission.
+
+Prevention: add the same `grep` check to your pre-release checklist (mentioned in Phase 5.3).
 
 ### `terraform test` fails with certificate not found or RDS snapshot quota
 
