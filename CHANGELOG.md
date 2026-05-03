@@ -1,5 +1,7 @@
 # Unreleased
 
+- Updating UPGRADE.md to include step to build AMI in dev account for taskcat after successful release
+
 # 1.10.3
 
 - packer_provisioning_scripts/ubuntu_2204_2404_preinstall.sh: third and (hopefully) final piece of the `--install-efs-utils` chain — `aws-lc-fips-sys`'s CMake build invokes Go for the FIPS-validation toolchain (`aws-lc/cmake/go.cmake`), so add `golang-go` to the apt install line alongside `cmake`. Note: pattern repos that consume this also need to ensure their packer appinstall script has `set -eux` as an explicit command (not just in the shebang), since packer's `execute_command` typically runs `bash <path>` which treats the shebang as a comment and silently ignores errors from this preinstall script.
